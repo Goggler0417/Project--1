@@ -1,24 +1,65 @@
-# Tagmark — multi-device version
+# Tagmark Local v1
 
-## 포함 기능
-- 이메일 로그인/가입용 Supabase Auth 연동 코드
-- Supabase PostgreSQL DB
-- 기기별 IndexedDB 로컬 캐시
-- 로그인 후 클라우드 pull/push
-- 태그 AND / OR 검색
-- URL 중복 감지 및 DB unique index
-- PWA
-- 오프라인에서 로컬 목록 열람
+iPad/Chrome에서 바로 쓸 수 있는 로컬 북마크 관리 웹앱입니다.  
+클라우드 동기화 없이 **브라우저 IndexedDB**에만 저장됩니다.
 
-## 설치
-1. Supabase 프로젝트 생성
-2. SQL Editor에서 `supabase.sql` 실행
-3. Supabase Project URL과 anon key를 `config.js`에 입력
-4. 정적 호스팅에 전체 파일 업로드
-5. `https://app.도메인.com`으로 연결
-6. iPhone/iPad/Mac Safari에서 홈 화면에 추가
+## 바로 사용하기 (GitHub Pages)
 
-## 중요한 점
-현재 코드는 동기화의 기본 골격을 제공하는 프로토타입입니다. 실사용 배포 전에는 자동 새로고침/실시간 subscription, 삭제 tombstone, 충돌 해결(last-write-wins), 이메일 인증/비밀번호 재설정 UI, URL 정규화 정책 등을 추가하는 것이 좋습니다.
+1. 이 저장소를 fork 하거나 새 저장소에 파일을 올립니다.
+2. **Settings → Pages → Source** 를 `Deploy from a branch` 로 설정하고 `main` (또는 `master`) 브랜치의 `/ (root)` 를 선택합니다.
+3. 몇 분 후 `https://<username>.github.io/<repo-name>/` 주소로 접속하면 됩니다.
 
-수천~수만 개까지 고려한다면 서버에서 전체 목록을 매번 가져오지 않고 cursor/pagination + 클라이언트 검색 인덱스(예: MiniSearch/FlexSearch)를 사용하는 방향이 좋습니다.
+> `file://` 로 직접 열면 IndexedDB가 제대로 동작하지 않을 수 있으니, 반드시 **HTTPS** (GitHub Pages 등)로 열어 주세요.
+
+## 기능 요약
+
+- 북마크 추가 / 수정 / 삭제, URL 중복 감지
+- **계층형 카테고리** (부모–자식 트리, 경로 표시, 하위 포함 필터)
+- **hitomi.la 스타일 태그** (포함 / 제외 / 해제 3상태 필터)
+- 사전 등록 태그 + 편집 시 검색·선택
+- 제목·URL·태그·메모·카테고리 검색
+- 최근 수정 / 제목 / 도메인 정렬
+- JSON 백업·복원 (태그 + 카테고리 트리 포함)
+- Chrome 북마크 HTML 가져오기 (폴더 경로 → 카테고리 계층)
+
+## UI 구조
+
+| 탭 | 설명 |
+|---|---|
+| **검색** | 검색창 + 결과 목록 (필터가 없으면 목록 숨김) |
+| **Tag** | 태그 필터 + 사전 등록 태그 관리 |
+| **Category** | 계층형 카테고리 트리 + 필터 + 관리 |
+
+### 태그 필터
+1. 클릭 → **포함** (초록)  
+2. 클릭 → **제외** (빨강)  
+3. 클릭 → 해제
+
+### 카테고리
+- 트리에서 클릭하면 해당 카테고리로 필터
+- 「하위 카테고리 포함」 옵션으로 자손까지 포함 가능
+- 편집 화면에서 `공부/의학`처럼 경로 입력 시 자동 생성
+
+## 로컬에서 실행
+
+```bash
+# 간단 정적 서버 예시
+npx serve .
+# 또는
+python3 -m http.server 8080
+```
+
+브라우저에서 `http://localhost:8080` 으로 접속하세요.
+
+## 데이터
+
+- 모든 데이터는 브라우저 **IndexedDB** (`tagmark-local-v1`)에만 저장됩니다.
+- 소스 코드에는 사용자 북마크가 포함되지 않습니다.
+- 백업 파일(`tagmark-backup.json`)로 다른 기기/브라우저로 옮길 수 있습니다.
+
+## 다음 버전 후보
+
+- 대량 선택 / 일괄 태그·카테고리 수정
+- 가상 리스트 (수천~수만 개)
+- 카테고리 드래그 앤 드롭
+- Supabase 클라우드 동기화
