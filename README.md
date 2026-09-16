@@ -1,4 +1,4 @@
-# Tagmark Local v1
+# Tagmark Local v5
 
 iPad/Chrome에서 바로 쓸 수 있는 로컬 북마크 관리 웹앱입니다.  
 클라우드 동기화 없이 **브라우저 IndexedDB**에만 저장됩니다.
