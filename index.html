@@ -322,8 +322,8 @@ function esc(s) {
 
 function tagColorClass(t) {
   const s = String(t);
-  if (/(?:male:|Male:|남:|남자:)/.test(s)) return "male";
   if (/(?:female:|Female:|여:|여자:)/.test(s)) return "female";
+  if (/(?:male:|Male:|남:|남자:)/.test(s)) return "male";
   if (/(?:tag:|Tag:|태그:)/.test(s)) return "tagprefix";
   return "";
 }
