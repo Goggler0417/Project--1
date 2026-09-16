@@ -510,27 +510,35 @@ async function refresh() {
 /* ---------- Filtering ---------- */
 function getFilteredItems() {
   const q = $("search").value.trim().toLowerCase();
-  const hasQuery = q.length > 0;
+  const scope = ($("searchScope") && $("searchScope").value) || "all";
   const hasTagFilter = Object.values(tagStates).some(s => s === "include" || s === "exclude");
   const hasCatFilter = !!selectedCatId;
 
-  if (!hasQuery && !hasTagFilter && !hasCatFilter) return null;
-
   return items.filter(x => {
-    if (hasQuery) {
-      const catPath = x.categoryId ? getCatPath(x.categoryId) : "";
-      const text = [x.title, x.url, x.notes, catPath, ...(x.tags || [])].join(" ").toLowerCase();
+    // 텍스트 검색 (범위 선택)
+    if (q) {
+      let text = "";
+      if (scope === "all") {
+        const catPath = x.categoryId ? getCatPath(x.categoryId) : "";
+        text = [x.title, x.url, x.notes, catPath, ...(x.tags || [])].join(" ").toLowerCase();
+      } else if (scope === "title") {
+        text = (x.title || "").toLowerCase();
+      } else if (scope === "tag") {
+        text = (x.tags || []).join(" ").toLowerCase();
+      } else if (scope === "category") {
+        text = (x.categoryId ? getCatPath(x.categoryId) : "").toLowerCase();
+      }
       if (!text.includes(q)) return false;
     }
 
-    // tag include / exclude
+    // 태그 include / exclude
     const ts = new Set(x.tags || []);
     for (const [tag, state] of Object.entries(tagStates)) {
       if (state === "include" && !ts.has(tag)) return false;
       if (state === "exclude" && ts.has(tag)) return false;
     }
 
-    // category filter
+    // 카테고리 필터
     if (hasCatFilter) {
       if (!x.categoryId) return false;
       if (includeDescendants) {
@@ -542,7 +550,6 @@ function getFilteredItems() {
     return true;
   });
 }
-
 /* ---------- Render ---------- */
 function render() {
   renderSearchResults();
@@ -555,12 +562,6 @@ function renderSearchResults() {
   const filtered = getFilteredItems();
   const sort = $("sort").value;
 
-  if (filtered === null) {
-    $("stats").textContent = `전체 ${items.length}개 · 검색하거나 Tag/Category 탭에서 필터를 걸면 목록이 표시됩니다`;
-    $("cards").innerHTML = `<div class="empty">북마크 목록은 검색 또는 필터를 적용했을 때만 표시됩니다.<br>상단 검색창에 입력하거나 Tag / Category 탭에서 선택하세요.</div>`;
-    return;
-  }
-
   filtered.sort((a, b) => {
     if (sort === "title") return (a.title || "").localeCompare(b.title || "", "ko");
     if (sort === "domain") return domain(a.url).localeCompare(domain(b.url));
@@ -570,7 +571,7 @@ function renderSearchResults() {
   $("stats").textContent = `${filtered.length}개 표시 · 전체 ${items.length}개`;
   $("cards").innerHTML = filtered.length
     ? filtered.map(card).join("")
-    : `<div class="empty">조건에 맞는 북마크가 없습니다.</div>`;
+    : `<div class="empty">북마크가 없습니다.<br>「＋ 북마크」 또는 「가져오기」로 시작하세요.</div>`;
 }
 
 function card(x) {
