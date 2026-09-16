@@ -215,9 +215,11 @@ function normalizeUrl(u){
   }catch{return u.trim().replace(/\/+$/,"")}
 }
 /** 호스트명 */ const domain=u=>{try{return new URL(u).hostname}catch{return""}};
-/** HTML 이스케이프 */ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/** HTML 이스케이프 */ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[/** 표시용: [최상위경로] 접두 제거 */ function tagLabel(t){
+  return String(t).replace(/^\[[^\]]+\]\s*/,"");
+}
 /** 태그 색 클래스 */ function tagColor(t){
-  const s=String(t);
+  const s=tagLabel(t);
   if(/(?:female:|Female:|여:|여자:)/.test(s))return"female";
   if(/(?:male:|Male:|남:|남자:)/.test(s))return"male";
   if(/(?:artist:|Artist:|작가:)/.test(s))return"artist";
