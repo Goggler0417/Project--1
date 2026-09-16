@@ -14,7 +14,9 @@
   --include:#dcfce7;--exclude:#fee2e2;
   --include-text:#166534;--exclude-text:#991b1b;
   --cat:#fef3c7;--cat-text:#92400e;
-  --male:#2563eb;--female:#dc2626;--tagprefix:#111827;
+    --male:#2563eb;--female:#dc2626;--tagprefix:#111827;
+  --artist:#7c3aed;--series:#16a34a;
+}
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -51,10 +53,12 @@ header{padding:22px 4px 16px;display:flex;gap:14px;align-items:center;justify-co
 .notes{font-size:13px;color:#4b5563;margin:7px 0;white-space:pre-wrap}
 .meta{font-size:12px;color:var(--muted);margin:4px 0}
 .chips{display:flex;gap:5px;flex-wrap:wrap}
-.chip{background:var(--chip);border-radius:999px;padding:4px 8px;font-size:12px}
+.chip{background:var(--chip);border-radius:999px;padding:4px 8px;font-size:12px;color:#111827}
 .chip.cat{background:var(--cat);color:var(--cat-text)}
 .chip.male,.tag-btn.male{color:var(--male)!important}
 .chip.female,.tag-btn.female{color:var(--female)!important}
+.chip.artist,.tag-btn.artist{color:var(--artist)!important}
+.chip.series,.tag-btn.series{color:var(--series)!important}
 .chip.tagprefix,.tag-btn.tagprefix{color:var(--tagprefix)!important}
 .actions{display:flex;gap:6px;margin-top:10px}
 .actions button{padding:7px 9px;font-size:12px}
@@ -64,6 +68,7 @@ header{padding:22px 4px 16px;display:flex;gap:14px;align-items:center;justify-co
 .tag-btn{
   border:1px solid var(--line);background:#fff;border-radius:999px;
   padding:7px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px;
+  color:#111827;
 }
 .tag-btn:hover{background:var(--chip)}
 .tag-btn.include{background:var(--include);border-color:#86efac;color:var(--include-text)}
@@ -188,15 +193,17 @@ header{padding:22px 4px 16px;display:flex;gap:14px;align-items:center;justify-co
     2회 → <span style="color:var(--exclude-text)">제외</span><br>
     3회 → 해제
   </div>
-  <div class="tag-manage">
+    <div class="tag-manage">
     <div class="side-title" style="margin-bottom:8px">사전 등록 태그</div>
+    <select id="regTagCategory" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px">
+      <option value="">(전체/미분류)</option>
+    </select>
     <input id="newTagName" placeholder="">
     <div class="row">
       <button class="btn primary" id="addRegisteredTag" style="flex:1">등록</button>
     </div>
     <div id="registeredTagList" style="margin-top:12px"></div>
   </div>
-</div>
 
 <div id="tab-categories" class="panel side-panel hidden">
   <div class="side-title">
@@ -329,11 +336,12 @@ function esc(s) {
 
 function tagColorClass(t) {
   const s = String(t);
-  // female를 먼저 (female 문자열 안에 male이 포함됨)
   if (/(?:female:|Female:|여:|여자:)/.test(s)) return "female";
   if (/(?:male:|Male:|남:|남자:)/.test(s)) return "male";
+  if (/(?:artist:|Artist:|작가:)/.test(s)) return "artist";
+  if (/(?:series:|Series:|시리즈:)/.test(s)) return "series";
   if (/(?:tag:|Tag:|태그:)/.test(s)) return "tagprefix";
-  return "";
+  return "tagprefix";
 }
 
 function pad2(n) {
@@ -562,6 +570,7 @@ function render() {
   renderRegisteredTagList();
   renderCatTree();
   populateCatParentSelect();
+  populateRegTagCategorySelect();
 }
 
 function renderSearchResults() {
@@ -657,14 +666,28 @@ function renderRegisteredTagList() {
   const box = $("registeredTagList");
   if (!box) return;
   const list = [...registeredTags].sort((a, b) => a.localeCompare(b, "ko"));
-  box.innerHTML = list.length
-    ? list.map(t =>
+
+  const groups = new Map();
+  for (const t of list) {
+    const m = t.match(/^\[([^\]]+)\]\s*(.*)$/);
+    const path = m ? m[1] : "(미분류)";
+    const label = m ? m[2] : t;
+    if (!groups.has(path)) groups.set(path, []);
+    groups.get(path).push({ full: t, label });
+  }
+
+  let html = "";
+  for (const [path, tags] of groups) {
+    html += '<div style="font-weight:700;margin:10px 0 4px;font-size:13px">' + esc(path) + '</div>';
+    html += tags.map(({ full, label }) =>
       '<div class="reg-tag-row">' +
-        '<span class="chip ' + tagColorClass(t) + '" style="flex:1">' + esc(t) + '</span>' +
-        '<button class="btn sm" data-ren-tag="' + esc(t) + '">수정</button>' +
-        '<button class="btn sm danger" data-del-tag="' + esc(t) + '">삭제</button>' +
-      '</div>').join("")
-    : '<div class="empty" style="padding:8px">등록된 태그 없음</div>';
+        '<span class="chip ' + tagColorClass(label) + '" style="flex:1">' + esc(label) + '</span>' +
+        '<button class="btn sm" data-ren-tag="' + esc(full) + '">수정</button>' +
+        '<button class="btn sm danger" data-del-tag="' + esc(full) + '">삭제</button>' +
+      '</div>'
+    ).join("");
+  }
+  box.innerHTML = html || '<div class="empty" style="padding:8px">등록된 태그 없음</div>';
 
   box.querySelectorAll("[data-ren-tag]").forEach(btn => {
     btn.onclick = async () => {
@@ -823,6 +846,22 @@ function populateCatParentSelect() {
   if (current) sel.value = current;
 }
 
+function populateRegTagCategorySelect() {
+  const sel = $("regTagCategory");
+  if (!sel) return;
+  const cur = sel.value;
+  const opts = ['<option value="">(전체/미분류)</option>'];
+  function walk(parentId, depth) {
+    for (const c of getChildren(parentId)) {
+      opts.push('<option value="' + c.id + '">' + "　".repeat(depth) + esc(c.name) + '</option>');
+      walk(c.id, depth + 1);
+    }
+  }
+  walk(null, 0);
+  sel.innerHTML = opts.join("");
+  if (cur) sel.value = cur;
+}
+  
 async function addCategory(name, parentId = null) {
   const exists = categories.some(c => c.name === name && (c.parentId || null) === (parentId || null));
   if (exists) {
@@ -857,8 +896,10 @@ $("includeDescendants").onchange = e => {
 };
 
 $("addRegisteredTag").onclick = async () => {
-  const name = $("newTagName").value.trim();
-  if (!name) return;
+  const raw = $("newTagName").value.trim();
+  if (!raw) return;
+  const catId = $("regTagCategory") ? $("regTagCategory").value : "";
+  const name = catId ? ("[" + getCatPath(catId) + "] " + raw) : raw;
   if (!registeredTags.includes(name)) {
     await putRegisteredTag(name);
     registeredTags.push(name);
