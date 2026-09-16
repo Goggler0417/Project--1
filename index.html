@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>태그 관리 시스템</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; padding: 20px; max-width: 600px; margin: 0 auto; }
+    .form-group { margin-bottom: 20px; position: relative; }
+    label { font-weight: bold; display: block; margin-bottom: 8px; }
+    input[type="text"], select { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    .inline-form { display: flex; gap: 8px; }
+    button { padding: 10px 16px; border: none; background-color: #007bff; color: white; border-radius: 4px; cursor: pointer; }
+    button:hover { background-color: #0056b3; }
+    button.secondary { background-color: #6c757d; }
+    button.secondary:hover { background-color: #5a6268; }
+    
+    /* 드롭다운 스타일 */
+    .tag-dropdown {
+      position: absolute; top: 100%; left: 0; right: 0; background: white;
+      border: 1px solid #ccc; border-top: none; max-height: 150px; overflow-y: auto;
+      z-index: 1000; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .dropdown-item { padding: 8px 12px; cursor: pointer; }
+    .dropdown-item:hover { background-color: #f0f0f0; }
+
+    /* 태그 칩 스타일 */
+    .tag-container { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tag-chip { background-color: #e9ecef; padding: 4px 10px; border-radius: 16px; font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+    .tag-chip button { background: none; border: none; color: #888; font-weight: bold; padding: 0; cursor: pointer; font-size: 14px; }
+    .tag-chip button:hover { color: #dc3545; }
+    
+    .actions { display: flex; gap: 10px; margin-top: 15px; }
+  </style>
+</head>
+<body>
+
+  <h2>태그 관리</h2>
+
+  <!-- 1. 사전등록 태그 추가 (유형 선택 유지 기능) -->
+  <div class="form-group">
+    <label>사전등록 태그 추가</label>
+    <div class="inline-form">
+      <select id="tagCategorySelect" style="width: 30%;">
+        <option value="character">등장인물</option>
+        <option value="genre">장르</option>
+        <option value="mood">분위기</option>
+      </select>
+      <input type="text" id="newTagInput" placeholder="새 태그 이름 입력..." />
+      <button type="button" onclick="addPreRegisteredTag()">등록</button>
+    </div>
+  </div>
+
+  <hr style="margin: 25px 0; border: 0; border-top: 1px solid #eee;" />
+
+  <!-- 2. 등장인물 태그 검색 및 적용 (나이칸 제거됨) -->
+  <div class="form-group">
+    <label for="characterSearch">등장인물 태그 검색/선택</label>
+    <input type="text" id="characterSearch" placeholder="등장인물 검색..." oninput="filterCharacterTags()" onfocus="filterCharacterTags()" />
+    <div id="characterTagDropdown" class="tag-dropdown"></div>
+    <div id="selectedCharacterTags" class="tag-container"></div>
+  </div>
+
+  <!-- 3. 기타 적용된 태그 표시 영역 -->
+  <div class="form-group">
+    <label>일반 태그</label>
+    <div id="selectedGeneralTags" class="tag-container"></div>
+  </div>
+
+  <!-- 4. 태그 복사 / 붙여넣기 컨트롤 -->
+  <div class="actions">
+    <button type="button" class="secondary" onclick="copyAllTags()">전체 태그 복사</button>
+    <button type="button" class="secondary" onclick="pasteTags()">클립보드 태그 붙여넣기</button>
+  </div>
+
+  <script>
+    // --- 초기 데이터 상태 ---
+    // 사전등록된 태그 데이터베이스 (메모리 관리 예시)
+    const db = {
+      character: ["강해진", "윤서우", "한이결", "차현빈"],
+      genre: ["판타지", "로맨스", "SF"],
+      mood: ["애절함", "사이다", "힐링"]
+    };
+
+    // 현재 화면에서 선택/적용된 태그 목록
+    let selectedCharacters = [];
+    let selectedGeneralTags = [];
+
+    // --- 기능 1: 사전등록 태그 추가 (유형 상태 유지) ---
+    function addPreRegisteredTag() {
+      const categorySelect = document.getElementById('tagCategorySelect');
+      const tagInput = document.getElementById('newTagInput');
+      
+      const category = categorySelect.value; // 현재 선택된 유형
+      const tagName = tagInput.value.trim();
+
+      if (!tagName) {
+        alert("태그 이름을 입력해주세요.");
+        return;
+      }
+
+      if (!db[category]) db[category] = [];
+      
+      if (!db[category].includes(tagName)) {
+        db[category].push(tagName);
+        alert(`'${category}' 유형에 '${tagName}' 태그가 사전등록되었습니다.`);
+      } else {
+        alert("이미 존재하는 태그입니다.");
+      }
+
+      // 핵심: categorySelect.value는 변경하지 않고 입력창만 비움
+      tagInput.value = '';
+      tagInput.focus();
+    }
+
+    // --- 기능 2: 등장인물 태그 검색 및 선택 ---
+    function filterCharacterTags() {
+      const query = document.getElementById('characterSearch').value.trim().toLowerCase();
+      const dropdown = document.getElementById('characterTagDropdown');
+      
+      // 등장인물 목록에서 검색
+      const filtered = db.character.filter(tag => 
+        tag.toLowerCase().includes(query) && !selectedCharacters.includes(tag)
+      );
+
+      if (filtered.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+      }
+
+      dropdown.innerHTML = filtered.map(tag => 
+        `<div class="dropdown-item" onclick="selectCharacterTag('${tag}')">${tag}</div>`
+      ).join('');
+
+      dropdown.style.display = 'block';
+    }
+
+    function selectCharacterTag(tagName) {
+      if (!selectedCharacters.includes(tagName)) {
+        selectedCharacters.push(tagName);
+        renderTags();
+      }
+      document.getElementById('characterSearch').value = '';
+      document.getElementById('characterTagDropdown').style.display = 'none';
+    }
+
+    function removeCharacterTag(tagName) {
+      selectedCharacters = selectedCharacters.filter(t => t !== tagName);
+      renderTags();
+    }
+
+    function removeGeneralTag(tagName) {
+      selectedGeneralTags = selectedGeneralTags.filter(t => t !== tagName);
+      renderTags();
+    }
+
+    // 외부 클릭 시 드롭다운 닫기
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.form-group')) {
+        document.getElementById('characterTagDropdown').style.display = 'none';
+      }
+    });
+
+    // --- 기능 3: 태그 복사 & 붙여넣기 ---
+    async function copyAllTags() {
+      const allTags = [...selectedCharacters, ...selectedGeneralTags];
+      if (allTags.length === 0) {
+        alert("복사할 태그가 없습니다.");
+        return;
+      }
+
+      const tagText = allTags.map(tag => `#${tag}`).join(' ');
+      
+      try {
+        await navigator.clipboard.writeText(tagText);
+        alert("클립보드에 태그가 복사되었습니다:\n" + tagText);
+      } catch (err) {
+        alert("복사 실패: 클립보드 접근 권한을 확인해주세요.");
+      }
+    }
+
+    async function pasteTags() {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text.trim()) {
+          alert("클립보드가 비어있습니다.");
+          return;
+        }
+
+        // # 문자로 구분하거나 공백, 쉼표 기준 분할
+        const parsed = text
+          .split(/[#,\s]+/)
+          .map(t => t.trim())
+          .filter(t => t.length > 0);
+
+        let addedCount = 0;
+
+        parsed.forEach(tag => {
+          // 등록된 등장인물 목록에 있으면 등장인물 태그로, 아니면 일반 태그로 분류
+          if (db.character.includes(tag)) {
+            if (!selectedCharacters.includes(tag)) {
+              selectedCharacters.push(tag);
+              addedCount++;
+            }
+          } else {
+            if (!selectedGeneralTags.includes(tag)) {
+              selectedGeneralTags.push(tag);
+              addedCount++;
+            }
+          }
+        });
+
+        renderTags();
+        alert(`${addedCount}개의 태그를 붙여넣었습니다.`);
+      } catch (err) {
+        alert("붙여넣기 실패: 클립보드 읽기 권한이 필요합니다.");
+      }
+    }
+
+    // --- 화면 렌더링 ---
+    function renderTags() {
+      // 등장인물 태그 렌더링
+      const charContainer = document.getElementById('selectedCharacterTags');
+      charContainer.innerHTML = selectedCharacters.map(tag => 
+        `<span class="tag-chip">#${tag} <button onclick="removeCharacterTag('${tag}')">&times;</button></span>`
+      ).join('');
+
+      // 일반 태그 렌더링
+      const genContainer = document.getElementById('selectedGeneralTags');
+      genContainer.innerHTML = selectedGeneralTags.map(tag => 
+        `<span class="tag-chip">#${tag} <button onclick="removeGeneralTag('${tag}')">&times;</button></span>`
+      ).join('');
+    }
+  </script>
+</body>
+</html>
