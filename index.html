@@ -85,7 +85,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">Local v1</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">Local v6</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -137,7 +137,15 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
     <div class="tag-grid" id="tagGrid"></div>
     <div class="tag-legend">1회 포함 · 2회 제외 · 3회 해제</div>
     <div class="manage">
-      <div class="side-title" style="margin-bottom:8px">사전 등록 태그</div>
+            <div class="side-title" style="margin-bottom:8px">사전 등록 태그</div>
+      <select id="newTagKind" style="margin-bottom:8px">
+        <option value="">종류 없음 (검정)</option>
+        <option value="male:">male: (파랑)</option>
+        <option value="female:">female: (빨강)</option>
+        <option value="artist:">artist: (보라)</option>
+        <option value="series:">series: (초록)</option>
+        <option value="tag:">tag: (검정)</option>
+      </select>
       <input id="newTagName" placeholder="">
       <button class="btn primary" id="addRegisteredTag" style="width:100%">등록</button>
       <div id="registeredTagList" style="margin-top:10px"></div>
@@ -457,10 +465,14 @@ $("clearTagFilters").onclick=()=>{tagStates={};render()};
 $("tagFilterSearch").oninput=()=>renderTagGrid();
 $("addTopCat").onclick=async()=>{const n=$("newTopCat").value.trim();if(!n)return;await addCat(n,null);$("newTopCat").value=""};
 $("addRegisteredTag").onclick=async()=>{
-  const raw=$("newTagName").value.trim();if(!raw||!activeTopId)return;
+  let raw=$("newTagName").value.trim();if(!raw||!activeTopId)return;
+  // 이미 접두어가 있으면 종류 선택 무시
+  const kind=$("newTagKind")?.value||"";
+  if(kind&&!/^(?:male:|female:|artist:|series:|tag:|Male:|Female:|Artist:|Series:|Tag:|남:|여:|남자:|여자:|작가:|시리즈:|태그:)/.test(raw))
+    raw=kind+raw;
   const name="["+catPath(activeTopId)+"] "+raw;
   if(!registeredTags.includes(name)){await put(ST,{name});registeredTags.push(name);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}
-  $("newTagName").value="";render();
+  $("newTagName").value="";if($("newTagKind"))$("newTagKind").value="";render();
 };
 
 /* 등장인물 UI */
