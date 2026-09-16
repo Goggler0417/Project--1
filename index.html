@@ -82,8 +82,7 @@ header{padding:22px 4px 16px;display:flex;gap:14px;align-items:center;justify-co
 .cat-label{flex:1;text-align:left;border:0;background:transparent;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer}
 .cat-label:hover{background:rgba(0,0,0,.04)}
 .cat-cnt{font-size:11px;color:var(--muted);margin-right:4px}
-.cat-actions{display:flex;gap:2px;opacity:0;transition:opacity .15s}
-.cat-node:hover .cat-actions{opacity:1}
+.cat-actions{display:flex;gap:2px;opacity:1}
 .cat-actions button{border:0;background:transparent;padding:4px 6px;font-size:12px;color:var(--muted);border-radius:4px}
 .cat-actions button:hover{background:var(--line);color:var(--text)}
 .cat-children{margin-left:18px;border-left:1px solid var(--line);padding-left:4px}
@@ -567,17 +566,41 @@ function card(x) {
   if (x.metaType === "pages" && x.pages) metaHtml = '<div class="meta">' + x.pages + ' 페이지</div>';
   if (x.metaType === "duration" && x.duration) metaHtml = '<div class="meta">' + esc(x.duration) + '</div>';
 
-  return '<article class="card">' +
+  return '<article class="card" data-id="' + esc(x.id) + '">' +
     '<div class="card-title">' + esc(x.title || x.url) + '</div>' +
-    '<div class="url">' + esc(x.url) + '</div>' +
+    '<div class="url-row">' +
+      '<button type="button" class="btn sm url-toggle" data-toggle-url>URL 펼치기</button>' +
+      '<div class="url hidden">' + esc(x.url) + '</div>' +
+    '</div>' +
     metaHtml +
     (x.notes ? '<div class="notes">' + esc(x.notes) + '</div>' : '') +
     '<div class="chips">' + catHtml + tagsHtml + '</div>' +
     '<div class="actions">' +
-      '<button class="btn" onclick="window.open(' + JSON.stringify(x.url) + ',\'_blank\')">열기</button>' +
-      '<button class="btn" onclick="editItem(\'' + x.id + '\')">수정</button>' +
-      '<button class="btn danger" onclick="removeItem(\'' + x.id + '\')">삭제</button>' +
+      '<button type="button" class="btn" data-open-url="' + esc(x.url) + '">열기</button>' +
+      '<button type="button" class="btn" data-edit-id="' + esc(x.id) + '">수정</button>' +
+      '<button type="button" class="btn danger" data-del-id="' + esc(x.id) + '">삭제</button>' +
     '</div></article>';
+    // 기존: $("cards").innerHTML = ...
+  // 그 바로 아래에 추가:
+
+  $("cards").querySelectorAll("[data-open-url]").forEach(btn => {
+    btn.onclick = () => window.open(btn.getAttribute("data-open-url"), "_blank");
+  });
+  $("cards").querySelectorAll("[data-edit-id]").forEach(btn => {
+    btn.onclick = () => editItem(btn.getAttribute("data-edit-id"));
+  });
+  $("cards").querySelectorAll("[data-del-id]").forEach(btn => {
+    btn.onclick = () => removeItem(btn.getAttribute("data-del-id"));
+  });
+    $("cards").querySelectorAll("[data-toggle-url]").forEach(btn => {
+    btn.onclick = () => {
+      const urlEl = btn.parentElement.querySelector(".url");
+      urlEl.classList.toggle("hidden");
+      btn.textContent = urlEl.classList.contains("hidden") ? "URL 펼치기" : "URL 접기";
+    };
+  });
+    };
+  });
 }
 
 function renderTagGrid() {
