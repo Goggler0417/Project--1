@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Tagmark Local v1</title>
+<style>
+:root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,textarea,select{font:inherit}button{cursor:pointer}
+.app{max-width:1180px;margin:auto;padding:env(safe-area-inset-top) 16px 30px}
+header{padding:22px 4px 16px;display:flex;gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.logo{font-size:25px;font-weight:800}.sub{font-size:13px;color:var(--muted)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 13px}
+.btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.danger{color:var(--danger)}.btn.sm{padding:6px 10px;font-size:12px}
+.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{padding:10px 18px;border:0;background:0;border-radius:10px 10px 0 0;color:var(--muted);font-weight:600;white-space:nowrap}
+.tab.active{background:var(--panel);color:var(--text);border:1px solid var(--line);border-bottom-color:var(--panel);margin-bottom:-1px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 10px #00000008}
+.side{padding:16px}
+.side-title{font-weight:700;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.side-search,.field input,.field textarea,.field select,.tag-manage input,.tag-manage select,.cat-manage input,.cat-manage select{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;outline:0}
+.searchbar{display:flex;gap:8px;padding:12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.search{flex:1;min-width:140px;padding:12px;border:1px solid var(--line);border-radius:11px;outline:0}
+.select{padding:11px;border:1px solid var(--line);border-radius:11px;background:#fff}
+.stats{padding:10px 14px;color:var(--muted);font-size:13px}
+.cards{padding:0 12px 12px;display:grid;gap:9px}
+.card{border:1px solid var(--line);border-radius:13px;padding:13px}
+.card-title{font-weight:700;overflow-wrap:anywhere}
+.url-row{margin:4px 0 9px}.url{color:var(--accent);font-size:13px;overflow-wrap:anywhere;margin-top:6px}
+.notes{font-size:13px;color:#4b5563;margin:7px 0;white-space:pre-wrap}.meta{font-size:12px;color:var(--muted);margin:4px 0}
+.chips{display:flex;gap:5px;flex-wrap:wrap}
+.chip{background:var(--chip);border-radius:999px;padding:4px 8px;font-size:12px;color:var(--tag)}
+.chip.cat{background:var(--cat);color:var(--cat-t)}
+.chip.male,.tag-btn.male{color:var(--male)!important}.chip.female,.tag-btn.female{color:var(--female)!important}
+.chip.artist,.tag-btn.artist{color:var(--artist)!important}.chip.series,.tag-btn.series{color:var(--series)!important}
+.chip.tagprefix,.tag-btn.tagprefix{color:var(--tag)!important}
+.actions{display:flex;gap:6px;margin-top:10px}.actions .btn{padding:7px 9px;font-size:12px}
+.empty{padding:40px 16px;text-align:center;color:var(--muted)}
+.tag-grid{display:flex;flex-wrap:wrap;gap:8px}
+.tag-btn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font-size:13px;display:inline-flex;align-items:center;gap:6px;color:var(--tag)}
+.tag-btn:hover{background:var(--chip)}.tag-btn.include{background:var(--inc);border-color:#86efac;color:var(--inc-t)}.tag-btn.exclude{background:var(--exc);border-color:#fca5a5;color:var(--exc-t)}
+.tag-btn .cnt{font-size:11px;opacity:.7}
+.tag-legend{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.6}
+.tag-manage,.cat-manage{margin-top:18px;padding-top:14px;border-top:1px solid var(--line)}
+.reg-tag-row{display:flex;align-items:center;gap:6px;padding:4px 0}
+.cat-tree{display:flex;flex-direction:column;gap:2px}
+.cat-node{display:flex;align-items:center;gap:4px;border-radius:8px;padding:4px 6px}
+.cat-node:hover{background:#f8fafc}.cat-node.active{background:var(--cat)}
+.cat-toggle{width:22px;height:22px;border:0;background:0;color:var(--muted);font-size:12px;padding:0;flex-shrink:0}
+.cat-toggle.inv{visibility:hidden}
+.cat-label{flex:1;text-align:left;border:0;background:0;padding:6px 8px;border-radius:6px;font-size:14px;cursor:pointer}
+.cat-cnt{font-size:11px;color:var(--muted);margin-right:4px}
+.cat-actions{display:flex;gap:2px}
+.cat-actions button{border:0;background:0;padding:4px 6px;font-size:12px;color:var(--muted);border-radius:4px}
+.cat-actions button:hover{background:var(--line);color:var(--text)}
+.cat-children{margin-left:18px;border-left:1px solid var(--line);padding-left:4px}
+.cat-filter-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;font-size:13px}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal.open{display:flex}
+.dialog{background:#fff;border-radius:17px;width:min(650px,100%);max-height:90vh;overflow:auto;padding:18px}
+.dialog h2{margin:0 0 14px}.field{margin:11px 0}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:5px}
+.field textarea{min-height:80px;resize:vertical}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.hidden{display:none!important}
+.importbox{border:1px dashed #b9c2d0;padding:15px;border-radius:12px;background:#fafbfe}
+.hint{font-size:12px;color:var(--muted);line-height:1.5}
+.picker{position:relative}
+.suggest{position:absolute;left:0;right:0;top:100%;z-index:5;background:#fff;border:1px solid var(--line);border-radius:10px;max-height:220px;overflow:auto;box-shadow:0 8px 20px #0001;display:none}
+.suggest.open{display:block}.suggest div{padding:9px 12px;cursor:pointer;font-size:13px}
+.suggest.tag div:hover{background:var(--chip)}.suggest.cat div:hover{background:var(--cat)}
+.selected{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.selected .chip{padding:5px 10px;display:inline-flex;align-items:center;gap:4px}
+.selected .chip button{border:0;background:0;padding:0 2px;font-size:14px;color:var(--muted)}
+.dur{display:flex;align-items:center;gap:6px}.dur input{width:4.5em;text-align:center;margin:0}
+@media(max-width:760px){.app{padding-left:10px;padding-right:10px}.toolbar{width:100%}.toolbar .btn{flex:1}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><div class="logo">Tagmark</div><div class="sub">Local v1</div></div>
+  <div class="toolbar">
+    <button class="btn primary" id="addBtn">＋ 북마크</button>
+    <button class="btn" id="importBtn">가져오기</button>
+    <button class="btn" id="exportBtn">백업</button>
+  </div>
+</header>
+<div class="tabs">
+  <button class="tab active" data-tab="search">검색</button>
+  <button class="tab" data-tab="tags">Tag</button>
+  <button class="tab" data-tab="categories">Category</button>
+</div>
+
+<!-- 검색 탭 -->
+<div id="tab-search" class="panel">
+  <div class="searchbar">
+    <input class="search" id="search" placeholder="">
+    <select class="select" id="searchScope">
+      <option value="all">전체</option><option value="title">제목</option>
+      <option value="tag">태그</option><option value="category">카테고리</option>
+    </select>
+    <select class="select" id="sort">
+      <option value="updated">최근 수정</option><option value="title">제목</option><option value="domain">도메인</option>
+    </select>
+  </div>
+  <div class="stats" id="stats"></div>
+  <div class="cards" id="cards"></div>
+</div>
+
+<!-- 태그 탭 -->
+<div id="tab-tags" class="panel side hidden">
+  <div class="side-title"><span>태그 필터</span><button class="btn sm" id="clearTagFilters">필터 초기화</button></div>
+  <input class="side-search" id="tagFilterSearch" placeholder="">
+  <div class="tag-grid" id="tagGrid"></div>
+  <div class="tag-legend"><strong>클릭</strong><br>1회 포함 · 2회 제외 · 3회 해제</div>
+  <div class="tag-manage">
+    <div class="side-title" style="margin-bottom:8px">사전 등록 태그</div>
+    <select id="regTagCategory"><option value="">(전체/미분류)</option></select>
+    <input id="newTagName" placeholder="">
+    <div style="display:flex;gap:8px"><button class="btn primary" id="addRegisteredTag" style="flex:1">등록</button></div>
+    <div id="registeredTagList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<!-- 카테고리 탭 -->
+<div id="tab-categories" class="panel side hidden">
+  <div class="side-title"><span>카테고리</span><button class="btn sm" id="clearCatFilter">필터 초기화</button></div>
+  <div class="cat-filter-bar"><label><input type="checkbox" id="includeDescendants" checked> 하위 포함</label></div>
+  <input class="side-search" id="catFilterSearch" placeholder="">
+  <div class="cat-tree" id="catTree"></div>
+  <div class="cat-manage">
+    <div class="side-title" style="margin-bottom:8px">카테고리 추가</div>
+    <input id="newCatName" placeholder="">
+    <select id="newCatParent"><option value="">(최상위)</option></select>
+    <div style="display:flex;gap:8px"><button class="btn primary" id="addCategory" style="flex:1">추가</button></div>
+  </div>
+</div>
+</div>
+
+<!-- 편집 모달 -->
+<div class="modal" id="editModal">
+  <div class="dialog">
+    <h2 id="modalTitle">북마크 추가</h2>
+    <div class="field"><label>URL</label><input id="url" type="url" placeholder=""></div>
+    <div class="field"><label>제목</label><input id="title" placeholder=""></div>
+    <div class="field"><label>카테고리</label>
+      <div class="picker"><input id="catPickerInput" placeholder="" autocomplete="off"><div class="suggest cat" id="catSuggest"></div></div>
+      <div class="selected" id="selectedCat"></div>
+    </div>
+    <div class="field"><label>태그</label>
+      <div class="picker"><input id="tagPickerInput" placeholder="" autocomplete="off"><div class="suggest tag" id="tagSuggest"></div></div>
+      <div class="selected" id="selectedTags"></div>
+    </div>
+    <div class="field"><label>페이지 수 / 재생시간</label>
+      <select id="metaType"><option value="">선택 안 함</option><option value="pages">페이지 수</option><option value="duration">재생시간</option></select>
+    </div>
+    <div class="field hidden" id="metaPagesField"><label>페이지 수</label><input id="metaPages" type="number" min="1" step="1" placeholder=""></div>
+    <div class="field hidden" id="metaDurationField"><label>재생시간</label>
+      <div class="dur">
+        <input id="durH" type="number" min="0" max="99" value="0"><span>:</span>
+        <input id="durM" type="number" min="0" max="59" value="0"><span>:</span>
+        <input id="durS" type="number" min="0" max="59" value="0">
+      </div>
+    </div>
+    <div class="field"><label>메모</label><textarea id="notes" placeholder=""></textarea></div>
+    <div class="modal-actions"><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div>
+  </div>
+</div>
+
+<!-- 가져오기 모달 -->
+<div class="modal" id="importModal">
+  <div class="dialog">
+    <h2>북마크 가져오기</h2>
+    <div class="importbox">
+      <input id="fileInput" type="file" accept=".json,.txt,.html,.htm">
+      <p class="hint">JSON / 텍스트 / Chrome HTML. 폴더는 카테고리 계층으로 변환됩니다.</p>
+    </div>
+    <div class="modal-actions"><button class="btn" id="importCancel">닫기</button></div>
+  </div>
+</div>
+
+<script>
+const DB="tagmark-local-v1", SB="bookmarks", ST="registeredTags", SC="categories";
+let db, items=[], registeredTags=[], categories=[];
+let tagStates={}, selectedCatId=null, includeDescendants=true, expandedCats=new Set();
+let editingId=null, curTags=[], curCatId=null;
+const $=id=>document.getElementById(id);
+const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2);
+
+/** URL 정규화 */
+function normalizeUrl(u){
+  try{let x=new URL(u.trim());x.protocol=x.protocol.toLowerCase();x.hostname=x.hostname.toLowerCase();
+    if((x.protocol==="https:"&&x.port==="443")||(x.protocol==="http:"&&x.port==="80"))x.port="";
+    x.hash="";if(x.pathname.length>1)x.pathname=x.pathname.replace(/\/+$/,"");return x.toString();
+  }catch{return u.trim().replace(/\/+$/,"")}
+}
+/** 호스트명 추출 */ const domain=u=>{try{return new URL(u).hostname}catch{return""}};
+/** HTML 이스케이프 */ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+/** 태그 색상 클래스 (female 우선) */
+function tagColorClass(t){
+  const s=String(t);
+  if(/(?:female:|Female:|여:|여자:)/.test(s))return"female";
+  if(/(?:male:|Male:|남:|남자:)/.test(s))return"male";
+  if(/(?:artist:|Artist:|작가:)/.test(s))return"artist";
+  if(/(?:series:|Series:|시리즈:)/.test(s))return"series";
+  return"tagprefix"; // 기본 검정
+}
+/** 2자리 패딩 */ const pad2=n=>{n=parseInt(n,10);return String(isNaN(n)||n<0?0:n).padStart(2,"0")};
+/** 재생시간 읽기 */ const getDuration=()=>pad2($("durH").value)+":"+pad2($("durM").value)+":"+pad2($("durS").value);
+/** 재생시간 쓰기 */ function setDuration(str){
+  const m=String(str||"00:00:00").match(/^(\d{1,2}):(\d{1,2}):(\d{1,2})$/);
+  $("durH").value=m?+m[1]:0;$("durM").value=m?+m[2]:0;$("durS").value=m?+m[3]:0;
+}
+
+/* ---------- IndexedDB ---------- */
+/** DB 열기 */ function openDB(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open(DB,3);
+    r.onupgradeneeded=e=>{const d=e.target.result;
+      if(!d.objectStoreNames.contains(SB))d.createObjectStore(SB,{keyPath:"id"});
+      if(!d.objectStoreNames.contains(ST))d.createObjectStore(ST,{keyPath:"name"});
+      if(!d.objectStoreNames.contains(SC))d.createObjectStore(SC,{keyPath:"id"});
+    };
+    r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error);
+  });
+}
+/** 스토어 전체 조회 */ const storeAll=name=>new Promise((res,rej)=>{const r=db.transaction(name).objectStore(name).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+/** 스토어 put */ const storePut=(name,v)=>new Promise((res,rej)=>{const r=db.transaction(name,"readwrite").objectStore(name).put(v);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+/** 스토어 delete */ const storeDel=(name,k)=>new Promise((res,rej)=>{const r=db.transaction(name,"readwrite").objectStore(name).delete(k);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)});
+
+/* ---------- 카테고리 헬퍼 ---------- */
+/** id로 카테고리 찾기 */ const getCat=id=>categories.find(c=>c.id===id)||null;
+/** 경로 문자열 */ function getCatPath(id){
+  const p=[];let c=getCat(id);const seen=new Set();
+  while(c&&!seen.has(c.id)){seen.add(c.id);p.unshift(c.name);c=c.parentId?getCat(c.parentId):null}
+  return p.join(" / ");
+}
+/** 자손 id 집합 */ function getDescIds(id){
+  const s=new Set([id]);let ch=1;
+  while(ch){ch=0;for(const c of categories)if(c.parentId&&s.has(c.parentId)&&!s.has(c.id)){s.add(c.id);ch=1}}
+  return s;
+}
+/** 자식 목록 */ const getChildren=pid=>categories.filter(c=>(c.parentId||null)===(pid||null)).sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+/** 카테고리 북마크 수 */ const countInCat=id=>!id?0:items.filter(x=>x.categoryId&&getDescIds(id).has(x.categoryId)).length;
+/** 경로 배열로 카테고리 보장 */ async function ensureCatPath(parts){
+  if(!parts?.length)return null;let pid=null;
+  for(const raw of parts){const n=raw.trim();if(!n)continue;
+    let f=categories.find(c=>c.name===n&&(c.parentId||null)===pid);
+    if(!f){f={id:uid(),name:n,parentId:pid};await storePut(SC,f);categories.push(f)}
+    pid=f.id;
+  }
+  return pid;
+}
+/** 경로 문자열 해석 */ const resolveCatPath=s=>!s?.trim()?null:ensureCatPath(s.split(/[/＞>]/).map(x=>x.trim()).filter(Boolean));
+
+/* ---------- 로드 ---------- */
+/** 전체 새로고침 */ async function refresh(){
+  items=await storeAll(SB);registeredTags=(await storeAll(ST)).map(t=>t.name);categories=await storeAll(SC);
+  for(const x of items){ // 구 version 문자열 category 마이그레이션
+    if(x.category&&!x.categoryId){const id=await resolveCatPath(x.category);if(id){x.categoryId=id;delete x.category;await storePut(SB,x)}}
+  }
+  const used=new Set();items.forEach(x=>(x.tags||[]).forEach(t=>used.add(t)));registeredTags.forEach(t=>used.add(t));
+  registeredTags=[...used].sort((a,b)=>a.localeCompare(b,"ko"));render();
+}
+
+/* ---------- 필터 ---------- */
+/** 검색·태그·카테고리 필터 */ function getFiltered(){
+  const q=$("search").value.trim().toLowerCase(), scope=$("searchScope").value||"all";
+  return items.filter(x=>{
+    if(q){let t="";
+      if(scope==="title")t=(x.title||"").toLowerCase();
+      else if(scope==="tag")t=(x.tags||[]).join(" ").toLowerCase();
+      else if(scope==="category")t=(x.categoryId?getCatPath(x.categoryId):"").toLowerCase();
+      else t=[x.title,x.url,x.notes,x.categoryId?getCatPath(x.categoryId):"",...(x.tags||[])].join(" ").toLowerCase();
+      if(!t.includes(q))return false;
+    }
+    const ts=new Set(x.tags||[]);
+    for(const[tag,st] of Object.entries(tagStates)){
+      if(st==="include"&&!ts.has(tag))return false;
+      if(st==="exclude"&&ts.has(tag))return false;
+    }
+    if(selectedCatId){
+      if(!x.categoryId)return false;
+      if(includeDescendants){if(!getDescIds(selectedCatId).has(x.categoryId))return false}
+      else if(x.categoryId!==selectedCatId)return false;
+    }
+    return true;
+  });
+}
+
+/* ---------- 렌더 ---------- */
+/** 전체 UI 갱신 */ function render(){
+  renderResults();renderTagGrid();renderRegTagList();renderCatTree();
+  fillCatSelect($("newCatParent"),true);fillCatSelect($("regTagCategory"),false);
+}
+/** 검색 결과 카드 */ function renderResults(){
+  const list=getFiltered(), sort=$("sort").value;
+  list.sort((a,b)=>sort==="title"?(a.title||"").localeCompare(b.title||"","ko"):sort==="domain"?domain(a.url).localeCompare(domain(b.url)):b.updatedAt-a.updatedAt);
+  $("stats").textContent=list.length+"개 표시 · 전체 "+items.length+"개";
+  $("cards").innerHTML=list.length?list.map(card).join(""):'<div class="empty">북마크가 없습니다.</div>';
+  if(list.length)bindCards();
+}
+/** 카드 HTML */ function card(x){
+  const tags=(x.tags||[]).map(t=>'<span class="chip '+tagColorClass(t)+'">'+esc(t)+'</span>').join("");
+  const cat=x.categoryId?'<span class="chip cat">'+esc(getCatPath(x.categoryId))+'</span>':"";
+  let meta="";if(x.metaType==="pages"&&x.pages)meta='<div class="meta">'+x.pages+' 페이지</div>';
+  if(x.metaType==="duration"&&x.duration)meta='<div class="meta">'+esc(x.duration)+'</div>';
+  return '<article class="card"><div class="card-title">'+esc(x.title||x.url)+'</div>'+
+    '<div class="url-row"><button type="button" class="btn sm" data-toggle-url>URL 펼치기</button>'+
+    '<div class="url hidden">'+esc(x.url)+'</div></div>'+meta+
+    (x.notes?'<div class="notes">'+esc(x.notes)+'</div>':'')+
+    '<div class="chips">'+cat+tags+'</div><div class="actions">'+
+    '<button type="button" class="btn" data-open="'+esc(x.url)+'">열기</button>'+
+    '<button type="button" class="btn" data-edit="'+esc(x.id)+'">수정</button>'+
+    '<button type="button" class="btn danger" data-del="'+esc(x.id)+'">삭제</button></div></article>';
+}
+/** 카드 버튼 이벤트 */ function bindCards(){
+  $("cards").querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>window.open(b.getAttribute("data-open"),"_blank"));
+  $("cards").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editItem(b.getAttribute("data-edit")));
+  $("cards").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>removeItem(b.getAttribute("data-del")));
+  $("cards").querySelectorAll("[data-toggle-url]").forEach(b=>b.onclick=()=>{
+    const u=b.parentElement.querySelector(".url");u.classList.toggle("hidden");
+    b.textContent=u.classList.contains("hidden")?"URL 펼치기":"URL 접기";
+  });
+}
+
+/* ---------- 태그 그리드·등록 ---------- */
+/** 태그 필터 칩 */ function renderTagGrid(){
+  const q=($("tagFilterSearch")?.value||"").trim().toLowerCase(), counts={};
+  items.forEach(x=>(x.tags||[]).forEach(t=>counts[t]=(counts[t]||0)+1));
+  const all=[...new Set([...registeredTags,...Object.keys(counts)])].sort((a,b)=>a.localeCompare(b,"ko"));
+  const vis=q?all.filter(t=>t.toLowerCase().includes(q)):all;
+  $("tagGrid").innerHTML=vis.length?vis.map(t=>{
+    const st=tagStates[t]||"";
+    return '<button class="tag-btn '+st+' '+tagColorClass(t)+'" data-tag="'+esc(t)+'">'+esc(t)+' <span class="cnt">'+(counts[t]||0)+'</span></button>';
+  }).join(""):'<div class="empty" style="padding:20px">태그 없음</div>';
+  $("tagGrid").querySelectorAll(".tag-btn").forEach(b=>b.onclick=()=>cycleTag(b.dataset.tag));
+}
+/** 태그 3상태 순환 */ function cycleTag(tag){
+  const c=tagStates[tag]||null;
+  if(!c)tagStates[tag]="include";else if(c==="include")tagStates[tag]="exclude";else delete tagStates[tag];
+  render();
+}
+/** 사전등록 목록(카테고리 그룹) */ function renderRegTagList(){
+  const box=$("registeredTagList");if(!box)return;
+  const groups=new Map();
+  for(const t of [...registeredTags].sort((a,b)=>a.localeCompare(b,"ko"))){
+    const m=t.match(/^\[([^\]]+)\]\s*(.*)$/), path=m?m[1]:"(미분류)", label=m?m[2]:t;
+    if(!groups.has(path))groups.set(path,[]);groups.get(path).push({full:t,label});
+  }
+  let h="";
+  for(const[path,tags] of groups){
+    h+='<div style="font-weight:700;margin:10px 0 4px;font-size:13px">'+esc(path)+'</div>';
+    h+=tags.map(({full,label})=>'<div class="reg-tag-row"><span class="chip '+tagColorClass(label)+'" style="flex:1">'+esc(label)+'</span>'+
+      '<button class="btn sm" data-ren="'+esc(full)+'">수정</button><button class="btn sm danger" data-rm="'+esc(full)+'">삭제</button></div>').join("");
+  }
+  box.innerHTML=h||'<div class="empty" style="padding:8px">등록된 태그 없음</div>';
+  box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=async()=>{
+    const old=b.dataset.ren, neu=prompt("새 태그 이름:",old);if(!neu?.trim()||neu.trim()===old)return;
+    const name=neu.trim();await storeDel(ST,old);await storePut(ST,{name});
+    for(const x of items)if((x.tags||[]).includes(old)){x.tags=x.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await storePut(SB,x)}
+    if(tagStates[old]){tagStates[name]=tagStates[old];delete tagStates[old]}
+    await refresh();
+  });
+  box.querySelectorAll("[data-rm]").forEach(b=>b.onclick=async()=>{
+    const name=b.dataset.rm;if(!confirm('태그 "'+name+'" 등록 삭제? (북마크 태그는 유지)'))return;
+    await storeDel(ST,name);registeredTags=registeredTags.filter(t=>t!==name);delete tagStates[name];render();
+  });
+}
+
+/* ---------- 카테고리 트리 ---------- */
+/** 카테고리 트리 렌더 */ function renderCatTree(){
+  const q=($("catFilterSearch")?.value||"").trim().toLowerCase(), box=$("catTree");
+  const hasMatch=(id,qq)=>{for(const c of getChildren(id)){if(c.name.toLowerCase().includes(qq)||getCatPath(c.id).toLowerCase().includes(qq)||hasMatch(c.id,qq))return true}return false};
+  const node=pid=>{
+    let ch=getChildren(pid);
+    if(q)ch=ch.filter(c=>getCatPath(c.id).toLowerCase().includes(q)||hasMatch(c.id,q));
+    if(!ch.length)return"";
+    return ch.map(c=>{
+      const kids=getChildren(c.id).length>0, exp=expandedCats.has(c.id)||(q&&hasMatch(c.id,q));
+      const active=selectedCatId===c.id?" active":"";
+      return '<div><div class="cat-node'+active+'">'+
+        '<button class="cat-toggle '+(kids?"":"inv")+'" data-tog="'+c.id+'">'+(exp?"▼":"▶")+'</button>'+
+        '<button class="cat-label" data-sel="'+c.id+'">'+esc(c.name)+'</button>'+
+        '<span class="cat-cnt">'+countInCat(c.id)+'</span>'+
+        '<div class="cat-actions"><button data-add="'+c.id+'">＋</button><button data-ren="'+c.id+'">✎</button><button data-del="'+c.id+'">×</button></div></div>'+
+        (kids&&exp?'<div class="cat-children">'+node(c.id)+'</div>':'')+'</div>';
+    }).join("");
+  };
+  box.innerHTML=node(null)||'<div class="empty" style="padding:20px">카테고리 없음</div>';
+  box.querySelectorAll("[data-tog]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=b.dataset.tog;expandedCats.has(id)?expandedCats.delete(id):expandedCats.add(id);renderCatTree()});
+  box.querySelectorAll("[data-sel]").forEach(b=>b.onclick=()=>{selectedCatId=selectedCatId===b.dataset.sel?null:b.dataset.sel;render()});
+  box.querySelectorAll("[data-add]").forEach(b=>b.onclick=e=>{e.stopPropagation();const n=prompt("하위 카테고리 이름:");if(n?.trim())addCat(n.trim(),b.dataset.add)});
+  box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=e=>{e.stopPropagation();const c=getCat(b.dataset.ren);if(!c)return;const n=prompt("새 이름:",c.name);if(n?.trim()&&n.trim()!==c.name){c.name=n.trim();storePut(SC,c).then(refresh)}});
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=async e=>{
+    e.stopPropagation();const id=b.dataset.del,c=getCat(id);if(!c)return;
+    const kids=getChildren(id).length,cnt=countInCat(id);
+    let msg='"'+c.name+'" 삭제?';if(kids)msg+="\n하위 "+kids+"개 포함";if(cnt)msg+="\n북마크 "+cnt+"개 카테고리 해제";
+    if(!confirm(msg))return;
+    const del=[...getDescIds(id)];for(const d of del)await storeDel(SC,d);
+    for(const x of items)if(x.categoryId&&del.includes(x.categoryId)){x.categoryId=null;await storePut(SB,x)}
+    if(selectedCatId&&del.includes(selectedCatId))selectedCatId=null;await refresh();
+  });
+}
+/** 카테고리 select 채우기 */ function fillCatSelect(sel,topLabel){
+  if(!sel)return;const cur=sel.value,opts=[topLabel?'<option value="">(최상위)</option>':'<option value="">(전체/미분류)</option>'];
+  const walk=(pid,d)=>{for(const c of getChildren(pid)){opts.push('<option value="'+c.id+'">'+"　".repeat(d)+esc(c.name)+'</option>');walk(c.id,d+1)}};
+  walk(null,0);sel.innerHTML=opts.join("");if(cur)sel.value=cur;
+}
+/** 카테고리 추가 */ async function addCat(name,parentId=null){
+  if(categories.some(c=>c.name===name&&(c.parentId||null)===(parentId||null))){alert("같은 부모에 동일 이름 존재");return}
+  const c={id:uid(),name,parentId:parentId||null};await storePut(SC,c);categories.push(c);
+  if(parentId)expandedCats.add(parentId);render();
+}
+
+/* ---------- 탭·이벤트 ---------- */
+document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));tab.classList.add("active");
+  const n=tab.dataset.tab;
+  $("tab-search").classList.toggle("hidden",n!=="search");
+  $("tab-tags").classList.toggle("hidden",n!=="tags");
+  $("tab-categories").classList.toggle("hidden",n!=="categories");
+});
+$("clearTagFilters").onclick=()=>{tagStates={};render()};
+$("clearCatFilter").onclick=()=>{selectedCatId=null;render()};
+$("tagFilterSearch").oninput=()=>renderTagGrid();
+$("catFilterSearch").oninput=()=>renderCatTree();
+$("includeDescendants").onchange=e=>{includeDescendants=e.target.checked;render()};
+$("addRegisteredTag").onclick=async()=>{ // 카테고리별 사전등록
+  const raw=$("newTagName").value.trim();if(!raw)return;
+  const catId=$("regTagCategory")?.value||"";
+  const name=catId?("["+getCatPath(catId)+"] "+raw):raw;
+  if(!registeredTags.includes(name)){await storePut(ST,{name});registeredTags.push(name);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}
+  $("newTagName").value="";render();
+};
+$("addCategory").onclick=async()=>{const n=$("newCatName").value.trim();if(!n)return;await addCat(n,$("newCatParent").value||null);$("newCatName").value=""};
+
+/* ---------- 편집 모달 ---------- */
+/** 편집 모달 열기 */ function showEdit(x){
+  editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";
+  $("url").value=x?.url||"";$("title").value=x?.title||"";$("notes").value=x?.notes||"";
+  curTags=[...(x?.tags||[])];curCatId=x?.categoryId||null;
+  const mt=x?.metaType||"";$("metaType").value=mt;$("metaPages").value=x?.pages??"";
+  setDuration(x?.duration||"00:00:00");
+  $("metaPagesField").classList.toggle("hidden",mt!=="pages");
+  $("metaDurationField").classList.toggle("hidden",mt!=="duration");
+  renderSelTags();renderSelCat();
+  $("tagPickerInput").value="";$("catPickerInput").value="";
+  $("tagSuggest").classList.remove("open");$("catSuggest").classList.remove("open");
+  $("editModal").classList.add("open");
+}
+/** 선택 태그 칩 */ function renderSelTags(){
+  $("selectedTags").innerHTML=curTags.map(t=>'<span class="chip '+tagColorClass(t)+'">'+esc(t)+' <button type="button" data-rm="'+esc(t)+'">×</button></span>').join("");
+  $("selectedTags").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>{curTags=curTags.filter(t=>t!==b.dataset.rm);renderSelTags()});
+}
+/** 선택 카테고리 칩 */ function renderSelCat(){
+  const box=$("selectedCat");if(!curCatId){box.innerHTML="";return}
+  box.innerHTML='<span class="chip cat">'+esc(getCatPath(curCatId))+' <button type="button" id="clrCat">×</button></span>';
+  $("clrCat").onclick=()=>{curCatId=null;renderSelCat()};
+}
+/** 태그 자동완성 */ function showTagSug(q){
+  const box=$("tagSuggest"), low=q.toLowerCase();
+  const cand=registeredTags.filter(t=>t.toLowerCase().includes(low)&&!curTags.includes(t)).slice(0,12);
+  if(!cand.length){box.classList.remove("open");return}
+  box.innerHTML=cand.map(t=>'<div data-t="'+esc(t)+'" class="'+tagColorClass(t)+'">'+esc(t)+'</div>').join("");
+  box.classList.add("open");
+  box.querySelectorAll("div").forEach(d=>d.onclick=()=>{addTag(d.dataset.t);$("tagPickerInput").value="";box.classList.remove("open")});
+}
+/** 태그 선택에 추가 */ function addTag(tag){
+  tag=tag.trim();if(!tag||curTags.includes(tag))return;curTags.push(tag);
+  if(!registeredTags.includes(tag))storePut(ST,{name:tag}).then(()=>{registeredTags.push(tag);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))});
+  renderSelTags();
+}
+/** 카테고리 자동완성(들여쓰기) */ function showCatSug(q){
+  const box=$("catSuggest"), low=(q||"").toLowerCase(), ordered=[];
+  const walk=(pid,d)=>{for(const c of getChildren(pid)){const path=getCatPath(c.id);
+    if(!low||path.toLowerCase().includes(low)||c.name.toLowerCase().includes(low))ordered.push({id:c.id,name:c.name,depth:d});
+    walk(c.id,d+1)}};
+  walk(null,0);
+  const list=ordered.slice(0,40);
+  const create=q&&/[/＞>]/.test(q)?'<div data-create="'+esc(q.trim())+'" style="border-top:1px solid var(--line);color:var(--accent)"><strong>새로:</strong> '+esc(q.trim())+'</div>':"";
+  if(!list.length&&!create){box.classList.remove("open");return}
+  box.innerHTML=list.map(c=>'<div data-id="'+c.id+'" style="padding-left:'+(8+c.depth*16)+'px">'+esc(c.name)+'</div>').join("")+create;
+  box.classList.add("open");
+  box.querySelectorAll("[data-id]").forEach(d=>d.onclick=()=>{curCatId=d.dataset.id;renderSelCat();$("catPickerInput").value="";box.classList.remove("open")});
+  box.querySelectorAll("[data-create]").forEach(d=>d.onclick=async()=>{curCatId=await resolveCatPath(d.dataset.create);renderSelCat();$("catPickerInput").value="";box.classList.remove("open");render()});
+}
+$("tagPickerInput").oninput=e=>showTagSug(e.target.value);
+$("tagPickerInput").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const v=e.target.value.trim();if(v){addTag(v);e.target.value="";$("tagSuggest").classList.remove("open")}}};
+$("catPickerInput").oninput=e=>showCatSug(e.target.value);
+$("catPickerInput").onfocus=e=>showCatSug(e.target.value);
+$("catPickerInput").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const v=e.target.value.trim();if(v)resolveCatPath(v).then(id=>{curCatId=id;renderSelCat();e.target.value="";$("catSuggest").classList.remove("open");render()})}};
+$("metaType").onchange=()=>{const v=$("metaType").value;$("metaPagesField").classList.toggle("hidden",v!=="pages");$("metaDurationField").classList.toggle("hidden",v!=="duration")};
+document.addEventListener("click",e=>{if(!e.target.closest(".picker")){$("tagSuggest").classList.remove("open");$("catSuggest").classList.remove("open")}});
+
+window.editItem=id=>showEdit(items.find(x=>x.id===id));
+window.removeItem=async id=>{if(confirm("이 북마크를 삭제할까요?")){await storeDel(SB,id);await refresh()}};
+$("addBtn").onclick=()=>showEdit();
+$("cancelBtn").onclick=()=>$("editModal").classList.remove("open");
+$("saveBtn").onclick=async()=>{ // 북마크 저장
+  let url=normalizeUrl($("url").value);
+  if(!url||!/^https?:\/\//i.test(url)){alert("http(s) URL을 입력하세요.");return}
+  const dup=items.find(x=>normalizeUrl(x.url)===url&&x.id!==editingId);
+  if(dup&&!confirm("같은 URL이 있습니다. 저장할까요?"))return;
+  const now=Date.now(), old=editingId?items.find(x=>x.id===editingId):null, mt=$("metaType").value||"";
+  await storePut(SB,{id:editingId||uid(),url,title:$("title").value.trim()||url,categoryId:curCatId||null,
+    tags:[...new Set(curTags)],notes:$("notes").value.trim(),metaType:mt,
+    pages:mt==="pages"?(parseInt($("metaPages").value,10)||null):null,
+    duration:mt==="duration"?getDuration():null,
+    createdAt:old?.createdAt||now,updatedAt:now});
+  $("editModal").classList.remove("open");await refresh();
+};
+
+/* ---------- 가져오기/내보내기 ---------- */
+$("importBtn").onclick=()=>$("importModal").classList.add("open");
+$("importCancel").onclick=()=>$("importModal").classList.remove("open");
+$("fileInput").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const n=await importData(await f.text(),f.name);alert(n.added+"개 추가, "+n.duplicates+"개 중복 건너뜀");
+    $("importModal").classList.remove("open");e.target.value="";await refresh()}
+  catch(err){alert("가져오기 실패: "+err.message)}
+};
+/** 파일 가져오기 */ async function importData(text,name){
+  let data=[];
+  if(/\.json$/i.test(name)){const j=JSON.parse(text);data=Array.isArray(j)?j:(j.bookmarks||[]);
+    if(j.categories)for(const c of j.categories)if(!categories.find(x=>x.id===c.id)){await storePut(SC,c);categories.push(c)}
+    if(j.registeredTags)for(const t of j.registeredTags)if(!registeredTags.includes(t)){await storePut(ST,{name:t});registeredTags.push(t)}
+  }else if(/\.html?$/i.test(name))data=parseHTML(text);else data=parseText(text);
+  let added=0,dups=0;const now=Date.now(), urls=new Set(items.map(x=>normalizeUrl(x.url)));
+  for(const raw of data){
+    if(!raw.url||!/^https?:\/\//i.test(raw.url.trim()))continue;
+    const url=normalizeUrl(raw.url);if(urls.has(url)){dups++;continue}urls.add(url);
+    const tags=[...new Set((raw.tags||[]).filter(Boolean))];
+    for(const t of tags)if(!registeredTags.includes(t)){await storePut(ST,{name:t});registeredTags.push(t)}
+    let categoryId=raw.categoryId||null;
+    if(!categoryId&&raw.categoryPath?.length)categoryId=await ensureCatPath(raw.categoryPath);
+    else if(!categoryId&&raw.category)categoryId=await resolveCatPath(raw.category);
+    const item={id:raw.id||uid(),url,title:raw.title?.trim()||url,categoryId,tags,notes:raw.notes||"",
+      metaType:raw.metaType||"",pages:raw.pages??null,duration:raw.duration??null,createdAt:raw.createdAt||now,updatedAt:now};
+    await storePut(SB,item);items.push(item);added++;
+  }
+  registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));return{added,duplicates:dups};
+}
+/** 텍스트에서 URL 추출 */ function parseText(t){
+  const out=[];for(const line of t.split(/\r?\n/)){const m=line.match(/https?:\/\/\S+/i);if(m){
+    const url=m[0].replace(/[),.;]+$/,"");out.push({url,title:line.slice(0,m.index).trim()||url,tags:[]})}}return out;
+}
+/** Chrome 북마크 HTML 파싱 */ function parseHTML(t){
+  const doc=new DOMParser().parseFromString(t,"text/html"),out=[];
+  const walk=(node,path=[])=>{for(const el of node.children||[]){
+    if(el.tagName==="DT"){const h=el.querySelector(":scope > H3"),a=el.querySelector(":scope > A");
+      if(h)walk(el.querySelector(":scope > DL")||el,path.concat(h.textContent.trim()));
+      else if(a)out.push({url:a.getAttribute("HREF")||"",title:a.textContent.trim(),categoryPath:path.length?path:null,tags:[]});
+    }else walk(el,path)}};
+  walk(doc.body,[]);return out;
+}
+$("exportBtn").onclick=async()=>{ // JSON 백업
+  const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),
+    bookmarks:await storeAll(SB),registeredTags:(await storeAll(ST)).map(t=>t.name),categories:await storeAll(SC)},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tagmark-backup.json";a.click();URL.revokeObjectURL(a.href);
+};
+$("search").oninput=render;$("searchScope").onchange=render;$("sort").onchange=render;
+openDB().then(refresh);
+</script>
+</body>
+</html>
