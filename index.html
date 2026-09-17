@@ -269,7 +269,7 @@ const SUPABASE_URL = "https://ogfcrdayneneylxurudv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lbermbhd3O8mjN6SaioreA_nLVsVrkm";
 const CLOUD_FILE_ID = "tagmark_main";
 const SYNC_SCHEMA_VERSION = 8;
-let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false;
+let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false, syncInitialized=false;
 let syncUser=null, syncHandledUserId=null;
 const syncConfigured=()=>SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
 function setSyncStatus(text,state=""){const s=$("syncStatus"),d=$("syncDot");if(s)s.textContent=text;if(d)d.className="sync-dot "+(state||"")}
@@ -324,37 +324,34 @@ async function pushCloud(reason="auto"){
   finally{syncBusy=false}
 }
 function scheduleCloudPush(){
-  if(applyingRemote||!syncUser||!supabaseClient)return;
-  markLocalDirty();clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud("auto"),700);
+  if(!syncInitialized||applyingRemote||!syncUser||!supabaseClient)return;
+  markLocalDirty();
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>pushCloud("auto"),700);
 }
 async function initialReconcile(){
   if(!syncUser||!supabaseClient)return;
-  setSyncStatus("클라우드와 로컬 데이터 확인 중…","busy");
+
+  setSyncStatus("클라우드와 연결 중…","busy");
+
   try{
     const cloud=await fetchCloud();
-    const local=await cloudSnapshot();
-    const hasLocal=local.bookmarks.length||local.registeredTags.length||local.categories.length;
+
+    // 최초 접속에서는 업로드/다운로드하지 않고
+    // 현재 기기의 로컬 데이터를 그대로 유지한다.
     if(!cloud){
-      if(hasLocal){
-        const ok=confirm("클라우드 데이터가 없습니다.\n\n현재 기기의 Tagmark 데이터를 클라우드에 새로 저장할까요?\n확인 = 로컬 → 클라우드\n취소 = 아무 것도 하지 않음");
-        if(ok)await pushCloud("manual");else setSyncStatus("클라우드 없음 · 로컬 유지","ok");
-      }else setSyncStatus("새 클라우드 파일 · 동기화 준비됨","ok");
-      return;
+      setSyncStatus("클라우드 데이터 없음 · 로컬 유지","ok");
+    }else{
+      setSyncStatus("클라우드 연결됨 · 로컬 유지","ok");
     }
-    const cloudAt=Date.parse(cloud.updated_at||"")||0;
-    const dirtyAt=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
-    if(!hasLocal){
-      if(confirm("현재 기기의 로컬 데이터가 비어 있습니다.\n\n기존 클라우드 데이터를 이 기기로 가져올까요?\n확인 = 클라우드 → 로컬\n취소 = 빈 로컬 유지")){
-        await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터를 적용함 · 실시간 연결됨","ok");
-      }else setSyncStatus("클라우드 유지 · 로컬은 비어 있음","ok");
-      return;
-    }
-    const choice=prompt("동기화 방향을 선택하세요.\n\n1 = 현재 기기 → 클라우드 (클라우드를 로컬로 덮어씀)\n2 = 클라우드 → 현재 기기 (로컬을 클라우드로 덮어씀)\n\n번호를 입력하세요.",dirtyAt>cloudAt?"1":"2");
-    if(choice==="1")await pushCloud("manual");
-    else if(choice==="2"){
-      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터를 적용함 · 실시간 연결됨","ok");
-    }else setSyncStatus("동기화 방향 선택 취소 · 로컬 유지","ok");
-  }catch(e){console.error(e);setSyncStatus("초기 동기화 실패: "+(e.message||e),"err")}
+
+    syncInitialized=true;
+
+  }catch(e){
+    console.error(e);
+    setSyncStatus("클라우드 확인 실패 · 로컬 유지","err");
+    syncInitialized=true;
+  }
 }
 async function pullCloud({force=false}={}){
   if(!syncUser||!supabaseClient)return;
