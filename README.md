@@ -1,25 +1,30 @@
-# Tagmark v2.3 — Supabase single-file sync
+# Tagmark v2.4 Final — Supabase single-file sync
 
-## 구조
-- IndexedDB: 기기에서 즉시 읽기/쓰기
-- Supabase: 사용자당 고정 레코드 1개 (`tagmark_main`)
-- Realtime: 다른 기기의 변경을 수신
-- 인증: Supabase Email/Password
+This build preserves the existing Tagmark v2.3 application/data features and adds the Supabase single-file sync layer.
 
-## 설정
-1. Supabase 프로젝트를 만든다.
-2. SQL Editor에서 `supabase-tagmark.sql`을 실행한다.
-3. Supabase Authentication에서 Email provider를 활성화한다.
-4. `index.html`의 `SUPABASE_URL`과 `SUPABASE_PUBLISHABLE_KEY`를 프로젝트 값으로 교체한다.
-5. GitHub Pages에 `index.html`을 올린다.
+## Included
+- Existing Tagmark bookmark, tag, profile, character, category, filter, import/export and local IndexedDB behavior is retained.
+- IndexedDB remains the immediate local store.
+- Supabase PostgreSQL stores one fixed record per authenticated user: `tagmark_main`.
+- Supabase Realtime receives INSERT/UPDATE changes on that record.
+- Email/password authentication.
+- Initial local/cloud reconciliation with protection for newer local edits.
+- Automatic upload after local changes (debounced ~0.7s).
+- Automatic retry/reconciliation when the browser comes back online.
+- Manual Cloud Push / Cloud Pull controls.
 
-## 동작
-- 북마크/태그/카테고리 변경 → IndexedDB에 즉시 반영 → 약 0.7초 후 고정 cloud record에 upsert.
-- 다른 기기는 Realtime UPDATE를 받으면 로컬 IndexedDB를 클라우드 데이터로 교체한다.
-- 인터넷이 끊겨 있으면 로컬 데이터는 계속 사용된다. 인터넷 복구 후 다음 변경 또는 수동 업로드로 클라우드에 반영된다.
-- 첫 로그인 후 클라우드 파일이 있으면 현재 기기에 가져올지 확인한다.
+## Supabase setup
+1. Open the Supabase project used by this build.
+2. Run the entire `supabase-tagmark.sql` in **SQL Editor → New query → Run**.
+3. Ensure **Authentication → Providers → Email** is enabled.
+4. Replace the GitHub Pages `index.html` with the included `index.html`.
 
-## 주의
-이 버전은 사용자가 요청한 “고정된 파일 하나” 모델이다. 데이터가 커질수록 한 번의 변경에 전체 JSON이 전송되므로, 수천~수만 개로 커지면 북마크/태그/카테고리를 별도 row로 나누는 방식이 더 효율적이다.
+The Project URL and Publishable key supplied for this project are already embedded in `index.html`.
 
-브라우저에 넣는 것은 Supabase Publishable Key뿐이어야 하며 `service_role`/secret key는 넣지 않는다.
+## Sync model
+Local changes are written to IndexedDB first. If signed in, the complete Tagmark JSON snapshot is then upserted to the user's fixed `tagmark_main` record. Other signed-in devices subscribe to that row through Supabase Realtime and replace their local snapshot when a newer remote version arrives.
+
+This intentionally uses one JSON record because the requested model is a single fixed cloud file. A future record-level sync can reduce payload size and provide finer conflict merging if the bookmark collection becomes very large.
+
+## Security
+Only the Supabase Publishable key is embedded in the browser. The SQL enables RLS so authenticated users can access only rows whose `user_id` matches `auth.uid()`. Never put a Supabase Secret/service_role key in `index.html`.

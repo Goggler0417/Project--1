@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Tagmark Local v1</title>
+<title>Tagmark v2.4 — Supabase Sync</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -94,7 +94,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">Local v1</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.4 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -261,13 +261,16 @@ const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()
 
 /* Supabase single-file cloud sync
    One authenticated user -> one fixed cloud record: tagmark_main.
-   Local IndexedDB remains the primary/instant store; Supabase is the sync layer. */
+   IndexedDB remains local-first; Supabase is the cross-device sync layer.
+   v2.4: initial local/cloud reconciliation, dirty tracking, realtime INSERT/UPDATE,
+   safer status handling, and no automatic overwrite of newer local edits. */
 const SUPABASE_URL = "https://ogfcrdayneneylxurudv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lbermbhd3O8mjN6SaioreA_nLVsVrkm";
 const CLOUD_FILE_ID = "tagmark_main";
+const SYNC_SCHEMA_VERSION = 6;
 let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false;
-let syncUser=null;
-const syncConfigured=()=>SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY && !SUPABASE_PUBLISHABLE_KEY.startsWith("YOUR_");
+let syncUser=null, syncHandledUserId=null;
+const syncConfigured=()=>SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
 function setSyncStatus(text,state=""){const s=$("syncStatus"),d=$("syncDot");if(s)s.textContent=text;if(d)d.className="sync-dot "+(state||"")}
 function setSyncButtons(){
   $("syncLoginBtn")?.classList.toggle("hidden",!!syncUser);
@@ -276,94 +279,152 @@ function setSyncButtons(){
   $("syncPullBtn")?.classList.toggle("hidden",!syncUser);
   if($("syncUser"))$("syncUser").textContent=syncUser?.email||"";
 }
-async function cloudSnapshot(){
-  return {version:5,exportedAt:new Date().toISOString(),
-    bookmarks:await all(SB), registeredTags:await all(ST), categories:await all(SC),
-    visibleKinds:JSON.parse(localStorage.getItem('tagmark-visible-kinds')||'null')};
+function markLocalDirty(){
+  if(applyingRemote)return;
+  localStorage.setItem("tagmark-local-dirty-at",String(Date.now()));
 }
-async function clearStore(name){const rows=await all(name);for(const r of rows)await del(name,r.id??r.name)}
+async function cloudSnapshot(){
+  return {
+    schemaVersion:SYNC_SCHEMA_VERSION,
+    exportedAt:new Date().toISOString(),
+    bookmarks:await all(SB),
+    registeredTags:await all(ST),
+    categories:await all(SC),
+    visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")
+  };
+}
 async function replaceLocalFromCloud(data){
   if(!data||typeof data!=="object")throw new Error("클라우드 데이터 형식이 올바르지 않습니다.");
   applyingRemote=true;
   try{
     const oldB=await all(SB),oldT=await all(ST),oldC=await all(SC);
-    for(const r of oldB)await del(SB,r.id);for(const r of oldT)await del(ST,r.name);for(const r of oldC)await del(SC,r.id);
-    for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r);
-    for(const r0 of (data.registeredTags||[])){const r=typeof r0==='string'?{name:r0}:r0;if(r?.name)await put(ST,r)}
-    for(const r of (data.categories||[]))if(r?.id)await put(SC,r);
-    if(Array.isArray(data.visibleKinds))localStorage.setItem('tagmark-visible-kinds',JSON.stringify(data.visibleKinds));
+    for(const r of oldB)await del(SB,r.id,{skipSync:true});
+    for(const r of oldT)await del(ST,r.name,{skipSync:true});
+    for(const r of oldC)await del(SC,r.id,{skipSync:true});
+    for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
+    for(const r0 of (data.registeredTags||[])){const r=typeof r0==="string"?{name:r0}:r;if(r?.name)await put(ST,r,{skipSync:true});}
+    for(const r of (data.categories||[]))if(r?.id)await put(SC,r,{skipSync:true});
+    if(Array.isArray(data.visibleKinds))localStorage.setItem("tagmark-visible-kinds",JSON.stringify(data.visibleKinds));
     await refresh();
+    localStorage.removeItem("tagmark-local-dirty-at");
   }finally{applyingRemote=false}
 }
-async function pushCloud(){
-  if(!syncUser||!supabaseClient)return;
-  if(syncBusy)return; syncBusy=true; setSyncStatus("클라우드에 저장 중…","busy");
+async function fetchCloud(){
+  const {data,error}=await supabaseClient.from("tagmark_files").select("data,updated_at").eq("user_id",syncUser.id).eq("file_id",CLOUD_FILE_ID).maybeSingle();
+  if(error)throw error;
+  return data||null;
+}
+async function pushCloud(reason="auto"){
+  if(!syncUser||!supabaseClient||syncBusy)return false;
+  syncBusy=true;setSyncStatus(reason==="manual"?"클라우드에 저장 중…":"변경사항 저장 중…","busy");
   try{
     const payload=await cloudSnapshot();
-    const {error}=await supabaseClient.from('tagmark_files').upsert({file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:'user_id,file_id'});
+    const {data,error}=await supabaseClient.from("tagmark_files").upsert({
+      file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:payload,updated_at:new Date().toISOString()
+    },{onConflict:"user_id,file_id"}).select("updated_at").single();
     if(error)throw error;
-    localStorage.setItem('tagmark-last-cloud-sync',Date.now().toString());
-    setSyncStatus("동기화됨","ok");
-  }catch(e){console.error(e);setSyncStatus("동기화 실패: "+(e.message||e),"err")}finally{syncBusy=false}
+    localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(data?.updated_at||"")||Date.now()));
+    localStorage.removeItem("tagmark-local-dirty-at");
+    setSyncStatus("동기화됨 · 실시간 연결 대기","ok");
+    return true;
+  }catch(e){console.error(e);setSyncStatus("동기화 실패: "+(e.message||e),"err");return false}
+  finally{syncBusy=false}
 }
 function scheduleCloudPush(){
   if(applyingRemote||!syncUser||!supabaseClient)return;
-  clearTimeout(syncTimer);
-  syncTimer=setTimeout(()=>pushCloud(),700);
+  markLocalDirty();clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud("auto"),700);
+}
+async function initialReconcile(){
+  if(!syncUser||!supabaseClient)return;
+  setSyncStatus("클라우드와 로컬 데이터 확인 중…","busy");
+  try{
+    const cloud=await fetchCloud();
+    const dirtyAt=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
+    if(!cloud){
+      const local=await cloudSnapshot();
+      const hasLocal=local.bookmarks.length||local.registeredTags.length||local.categories.length;
+      if(hasLocal){
+        if(confirm("이 계정의 클라우드 파일이 없습니다.\n현재 기기의 Tagmark 데이터를 새 클라우드 파일로 올릴까요?"))await pushCloud("manual");
+        else setSyncStatus("클라우드 파일 없음 · 로컬 유지","ok");
+      }else setSyncStatus("새 클라우드 파일 · 동기화 준비됨","ok");
+      return;
+    }
+    const cloudAt=Date.parse(cloud.updated_at||"")||0;
+    if(dirtyAt && dirtyAt>cloudAt){
+      const choice=confirm("이 기기에서 클라우드보다 최근에 변경한 로컬 데이터가 있습니다.\n\n확인: 로컬 데이터를 클라우드에 저장\n취소: 클라우드 데이터를 현재 기기에 적용");
+      if(choice)await pushCloud("manual");
+      else{await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터 적용됨","ok");}
+    }else{
+      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터 적용됨 · 실시간 연결됨","ok");
+    }
+  }catch(e){console.error(e);setSyncStatus("초기 동기화 실패: "+(e.message||e),"err")}
 }
 async function pullCloud({force=false}={}){
   if(!syncUser||!supabaseClient)return;
   setSyncStatus("클라우드 확인 중…","busy");
-  const {data,error}=await supabaseClient.from('tagmark_files').select('data,updated_at').eq('user_id',syncUser.id).eq('file_id',CLOUD_FILE_ID).maybeSingle();
-  if(error){setSyncStatus("클라우드 읽기 실패: "+error.message,"err");return}
-  if(!data){setSyncStatus("클라우드 파일이 없습니다.","");return}
-  if(force||confirm("클라우드의 Tagmark 데이터를 현재 기기에 적용할까요?\n현재 기기의 로컬 데이터는 클라우드 데이터로 교체됩니다.")){
-    await replaceLocalFromCloud(data.data);
-    localStorage.setItem('tagmark-last-cloud-sync',Date.now().toString());
-    setSyncStatus("클라우드에서 가져옴","ok");
-  }else setSyncStatus("동기화 대기 중","ok");
+  try{
+    const cloud=await fetchCloud();
+    if(!cloud){setSyncStatus("클라우드 파일이 없습니다.","");return;}
+    if(force){
+      if(!confirm("클라우드의 Tagmark 데이터를 현재 기기에 적용할까요?\n현재 기기의 로컬 데이터는 클라우드 데이터로 교체됩니다."))return;
+      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(cloud.updated_at||"")||Date.now()));setSyncStatus("클라우드에서 가져옴","ok");
+    }else await initialReconcile();
+  }catch(e){setSyncStatus("클라우드 읽기 실패: "+e.message,"err")}
 }
 async function startRealtime(){
   if(syncChannel)await supabaseClient.removeChannel(syncChannel);
-  syncChannel=supabaseClient.channel('tagmark-file-'+syncUser.id)
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'tagmark_files',filter:`user_id=eq.${syncUser.id}`},async payload=>{
+  syncChannel=supabaseClient.channel("tagmark-file-"+syncUser.id)
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{
       if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;
-      const remoteAt=Date.parse(payload.new.updated_at||0),localAt=Number(localStorage.getItem('tagmark-last-cloud-sync')||0);
-      if(remoteAt&&remoteAt<=localAt)return;
-      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem('tagmark-last-cloud-sync',String(remoteAt||Date.now()));setSyncStatus("다른 기기 변경사항 적용됨","ok")}catch(e){console.error(e);setSyncStatus("원격 변경 적용 실패","err")}
+      const remoteAt=Date.parse(payload.new.updated_at||"")||0;
+      const localDirty=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
+      const lastCloud=Number(localStorage.getItem("tagmark-last-cloud-sync")||0);
+      if(localDirty>remoteAt){setSyncStatus("다른 기기 변경 감지 · 이 기기의 최근 변경을 보호함","busy");return;}
+      if(remoteAt && remoteAt<=lastCloud)return;
+      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(remoteAt||Date.now()));setSyncStatus("다른 기기 변경사항 적용됨","ok");}catch(e){console.error(e);setSyncStatus("원격 변경 적용 실패","err")}
     })
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'tagmark_files',filter:`user_id=eq.${syncUser.id}`},async payload=>{
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{
       if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;
-      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem('tagmark-last-cloud-sync',String(Date.now()));setSyncStatus("클라우드 파일 가져옴","ok")}catch(e){console.error(e)}
-    }).subscribe((status)=>{if(status==='SUBSCRIBED')setSyncStatus("실시간 동기화 연결됨","ok")});
+      const localDirty=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
+      if(localDirty){setSyncStatus("클라우드 파일 생성됨 · 로컬 변경 확인 필요","busy");return;}
+      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(payload.new.updated_at||"")||Date.now()));setSyncStatus("클라우드 파일 가져옴","ok");}catch(e){console.error(e);setSyncStatus("클라우드 파일 적용 실패","err")}
+    })
+    .subscribe(status=>{if(status==="SUBSCRIBED"){syncReady=true;setSyncStatus("실시간 동기화 연결됨","ok")}else if(status==="CHANNEL_ERROR")setSyncStatus("실시간 연결 오류 · 재연결 중…","err")});
 }
 async function initSupabaseSync(){
   setSyncButtons();
-  if(!syncConfigured()){setSyncStatus("Supabase 동기화: URL / Publishable Key 설정 필요","");return}
-  const mod=await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-  supabaseClient=mod.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
-  const {data:{session}}=await supabaseClient.auth.getSession();
-  syncUser=session?.user||null;setSyncButtons();
-  if(syncUser){await startRealtime();setSyncStatus("로그인됨 · 클라우드 확인 중…","busy");}
-  supabaseClient.auth.onAuthStateChange(async (_event,session2)=>{
-    syncUser=session2?.user||null;setSyncButtons();
-    if(syncUser){await startRealtime();await pullCloud();}else{if(syncChannel)await supabaseClient.removeChannel(syncChannel);syncChannel=null;setSyncStatus("로그아웃됨","")}
-  });
+  if(!syncConfigured()){setSyncStatus("Supabase 동기화 설정 필요","");return;}
+  try{
+    const mod=await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
+    supabaseClient=mod.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+    const {data:{session}}=await supabaseClient.auth.getSession();
+    syncUser=session?.user||null;setSyncButtons();
+    if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
+    supabaseClient.auth.onAuthStateChange(async (_event,session2)=>{
+      const nextUser=session2?.user||null;
+      if(nextUser?.id===syncHandledUserId && _event==="INITIAL_SESSION")return;
+      syncUser=nextUser;setSyncButtons();
+      if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
+      else{if(syncChannel)await supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;setSyncStatus("로그아웃됨","");}
+    });
+  }catch(e){console.error(e);setSyncStatus("Supabase 초기화 실패: "+(e.message||e),"err")}
 }
 $("syncLoginBtn").onclick=async()=>{
-  if(!syncConfigured()){alert("index.html의 SUPABASE_URL과 SUPABASE_PUBLISHABLE_KEY를 먼저 입력하세요.");return}
+  if(!syncConfigured()){alert("Supabase 설정이 올바르지 않습니다.");return}
   const email=prompt("Supabase 로그인 이메일");if(!email)return;const password=prompt("비밀번호");if(!password)return;
   setSyncStatus("로그인 중…","busy");
-  const {error}=await supabaseClient.auth.signInWithPassword({email,password});
+  const {error}=await supabaseClient.auth.signInWithPassword({email:email.trim(),password});
   if(error){
-    if(confirm("로그인 실패: "+error.message+"\n\n이 이메일로 새 계정을 만들까요?")){const r=await supabaseClient.auth.signUp({email,password});if(r.error)alert("회원가입 실패: "+r.error.message);else alert("회원가입 요청이 완료되었습니다. Supabase 이메일 확인 설정에 따라 이메일 인증이 필요할 수 있습니다.")}
+    if(confirm("로그인에 실패했습니다.\n\n새 계정을 만들까요?")){
+      const r=await supabaseClient.auth.signUp({email:email.trim(),password});
+      if(r.error)alert("회원가입 실패: "+r.error.message);else alert("회원가입 요청이 완료되었습니다. 이메일 확인이 켜져 있다면 받은 메일에서 인증한 뒤 로그인하세요.");
+    }
     setSyncStatus("로그인 실패","err");
   }
 };
 $("syncLogoutBtn").onclick=async()=>{await supabaseClient?.auth.signOut()};
-$("syncPushBtn").onclick=async()=>{if(confirm("현재 기기의 데이터를 고정 클라우드 파일에 저장할까요? 다른 기기의 현재 버전은 이 데이터로 갱신됩니다."))await pushCloud()};
+$("syncPushBtn").onclick=async()=>{if(confirm("현재 기기의 데이터를 고정 클라우드 파일에 저장할까요? 다른 기기의 데이터도 이 버전으로 갱신됩니다."))await pushCloud("manual")};
 $("syncPullBtn").onclick=async()=>pullCloud({force:true});
-
 
 /** URL 정규화 */
 function normalizeUrl(u){
@@ -418,8 +479,8 @@ function openDB(){return new Promise((res,rej)=>{
   r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error);
 })}
 const all=n=>new Promise((res,rej)=>{const r=db.transaction(n).objectStore(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-const put=(n,v)=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();scheduleCloudPush()};r.onerror=()=>rej(r.error)});
-const del=(n,k)=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).delete(k);r.onsuccess=()=>{res();scheduleCloudPush()};r.onerror=()=>rej(r.error)});
+const put=(n,v,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
+const del=(n,k,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).delete(k);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
 
 /* 카테고리 헬퍼 */
 const getCat=id=>categories.find(c=>c.id===id)||null;
