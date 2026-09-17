@@ -262,8 +262,8 @@ const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()
 /* Supabase single-file cloud sync
    One authenticated user -> one fixed cloud record: tagmark_main.
    Local IndexedDB remains the primary/instant store; Supabase is the sync layer. */
-const SUPABASE_URL = "YOUR_SUPABASE_URL";
-const SUPABASE_PUBLISHABLE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+const SUPABASE_URL = "https://ogfcrdayneneylxurudv.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lbermbhd3O8mjN6SaioreA_nLVsVrkm";
 const CLOUD_FILE_ID = "tagmark_main";
 let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false;
 let syncUser=null;
