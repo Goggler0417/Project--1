@@ -897,16 +897,23 @@ async function importData(text,name){
     if(j.registeredTags)for(const t of j.registeredTags){const row=typeof t==='string'?{name:t}:t;if(!row?.name)continue;await put(ST,row);if(!registeredTags.includes(row.name))registeredTags.push(row.name);const mi=registeredTagMeta.findIndex(r=>r.name===row.name);if(mi>=0)registeredTagMeta[mi]=row;else registeredTagMeta.push(row)}
   }else if(/\.html?$/i.test(name))data=parseHTML(text);else data=parseText(text);
   let added=0,dups=0;const now=Date.now(),urls=new Set(items.map(x=>normalizeUrl(x.url)));
-  const under=activeTopId||null;
+  const under=null;
   for(const raw of data){
     if(!raw.url||!/^https?:\/\//i.test(raw.url.trim()))continue;
     const url=normalizeUrl(raw.url);if(urls.has(url)){dups++;continue}urls.add(url);
     const tags=[...new Set((raw.tags||[]).filter(Boolean))];
     for(const t of tags)if(!registeredTags.includes(t)){await put(ST,{name:t});registeredTags.push(t)}
-    let categoryId=raw.categoryId||null;
-    if(!categoryId&&raw.categoryPath?.length)categoryId=await ensurePath(raw.categoryPath,under);
-    else if(!categoryId&&raw.category)categoryId=await resolvePath(raw.category,under);
-    else if(!categoryId)categoryId=under;
+    let categoryId=null;
+
+if(raw.categoryPath?.length){
+  categoryId=await ensurePath(raw.categoryPath,null);
+}else if(raw.category?.trim()){
+  categoryId=await resolvePath(raw.category,null);
+}else if(raw.categoryId && getCat(raw.categoryId)){
+  categoryId=raw.categoryId;
+}else{
+  categoryId=activeTopId||null;
+}
     const item={id:raw.id||uid(),url,title:raw.title?.trim()||url,categoryId,tags,
       characters:raw.characters||[],notes:raw.notes||"",metaType:raw.metaType||"",
       pages:raw.pages??null,duration:raw.duration??null,createdAt:raw.createdAt||now,updatedAt:now};
