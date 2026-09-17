@@ -1,4 +1,4 @@
-# Tagmark Local – 1-8 수정 반영본
+# Tagmark Local – v9 수정 반영본
 
 현재 개발 중인 최신 Local 버전의 HTML 단일 파일입니다.
 
