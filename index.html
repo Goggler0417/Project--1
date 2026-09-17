@@ -712,7 +712,6 @@ $("saveBtn").onclick=async()=>{
   }));
   for(const st of autoSeriesFromCharacterTags(chars.flatMap(c=>c.tags||[])))if(!curTags.includes(st))curTags.push(st);
   const now=Date.now(),old=editingId?items.find(x=>x.id===editingId):null,mt=document.querySelector('input[name="metaType"]:checked')?.value||"";
-  if(!mt){alert("페이지 수 또는 재생시간을 선택하세요.");return}
   if(mt==="pages" && !(parseInt($("metaPages").value,10)>0)){alert("페이지 수를 입력하세요.");return}
   if(mt==="duration" && getDur()==="00:00:00"){alert("재생시간을 입력하세요.");return}
   let categoryId=curCatId||activeTopId;
