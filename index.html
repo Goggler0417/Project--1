@@ -260,14 +260,13 @@ const $=id=>document.getElementById(id);
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2);
 
 /* Supabase single-file cloud sync
-   One authenticated user -> one fixed cloud record: tagmark_main.
-   IndexedDB remains local-first; Supabase is the cross-device sync layer.
-   v2.4: initial local/cloud reconciliation, dirty tracking, realtime INSERT/UPDATE,
-   safer status handling, and no automatic overwrite of newer local edits. */
+   v2.5: merge-only sync. Existing local/cloud records are never deleted by sync.
+   New/changed records are merged by bookmark id or normalized URL; tags/categories
+   are unioned. Category IDs are repaired/canonicalized by category path. */
 const SUPABASE_URL = "https://ogfcrdayneneylxurudv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lbermbhd3O8mjN6SaioreA_nLVsVrkm";
 const CLOUD_FILE_ID = "tagmark_main";
-const SYNC_SCHEMA_VERSION = 6;
+const SYNC_SCHEMA_VERSION = 7;
 let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false;
 let syncUser=null, syncHandledUserId=null;
 const syncConfigured=()=>SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
@@ -279,152 +278,128 @@ function setSyncButtons(){
   $("syncPullBtn")?.classList.toggle("hidden",!syncUser);
   if($("syncUser"))$("syncUser").textContent=syncUser?.email||"";
 }
-function markLocalDirty(){
-  if(applyingRemote)return;
-  localStorage.setItem("tagmark-local-dirty-at",String(Date.now()));
+function markLocalDirty(){if(applyingRemote)return;localStorage.setItem("tagmark-local-dirty-at",String(Date.now()))}
+const normText=v=>String(v??"").trim().toLocaleLowerCase();
+function uniqStrings(a){return [...new Set((a||[]).filter(x=>x!==null&&x!==undefined&&String(x).trim()!=="").map(String))]}
+function uniqObjects(a,keyFn){const m=new Map();for(const x of a||[]){if(!x)continue;const k=keyFn(x);if(!m.has(k))m.set(k,x)}return [...m.values()]}
+function mergeText(a,b){a=String(a||"");b=String(b||"");if(!a)return b;if(!b||a===b)return a;if(a.includes(b))return a;if(b.includes(a))return b;return a+"\n\n"+b}
+function bookmarkKey(x){return normalizeUrl(x?.url||"")||String(x?.id||"")}
+function mergeBookmark(a,b){
+  const out={...(a||{}),...(b||{})};
+  // Prefer the existing local record for stable identity/metadata, but never discard non-empty data.
+  if(a?.id)out.id=a.id; else if(b?.id)out.id=b.id;
+  out.url=a?.url||b?.url||"";
+  out.title=a?.title||b?.title||out.url;
+  out.notes=mergeText(a?.notes,b?.notes);
+  out.tags=uniqStrings([...(a?.tags||[]),...(b?.tags||[])]);
+  out.characters=uniqObjects([...(a?.characters||[]),...(b?.characters||[])],c=>JSON.stringify({name:c.name||"",role:c.role||"",gender:c.gender||"",tags:[...(c.tags||[])].sort()}));
+  if(a?.pages!=null&&a.pages!=="")out.pages=a.pages; else if(b?.pages!=null)out.pages=b.pages;
+  if(a?.duration!=null&&a.duration!=="")out.duration=a.duration; else if(b?.duration!=null)out.duration=b.duration;
+  if(a?.metaType)out.metaType=a.metaType; else if(b?.metaType)out.metaType=b.metaType;
+  out.createdAt=Math.min(Number(a?.createdAt)||Date.now(),Number(b?.createdAt)||Date.now());
+  out.updatedAt=Math.max(Number(a?.updatedAt)||0,Number(b?.updatedAt)||0,Date.now());
+  return out;
+}
+function categoryPathFrom(list,id){
+  const by=new Map((list||[]).map(c=>[c.id,c]));const out=[];const seen=new Set();let c=by.get(id);
+  while(c&&!seen.has(c.id)){seen.add(c.id);out.unshift(String(c.name||""));c=c.parentId?by.get(c.parentId):null}
+  return out.filter(Boolean);
+}
+function mergeCategorySets(localCats,cloudCats){
+  const sources=[{name:"local",cats:localCats||[]},{name:"cloud",cats:cloudCats||[]}];
+  const entries=[];const pathMap=new Map();const maps={local:new Map(),cloud:new Map()};
+  // Build each source's path from its own IDs, then canonicalize equal paths to one ID.
+  for(const src of sources){
+    for(const c of src.cats){
+      const path=categoryPathFrom(src.cats,c.id);const key=path.map(normText).join("\u001f");
+      entries.push({src:src.name,c,path,key});
+    }
+  }
+  const canonical=new Map();
+  // Local IDs win for a path; otherwise reuse a cloud ID if it is not already assigned to another path.
+  for(const e of entries.filter(x=>x.src==="local"))if(!canonical.has(e.key))canonical.set(e.key,e.c.id);
+  for(const e of entries.filter(x=>x.src==="cloud"))if(!canonical.has(e.key))canonical.set(e.key,e.c.id||uid());
+  // Resolve collisions where one source reused an ID for different category paths.
+  const used=new Map();
+  for(const [k,id0] of [...canonical]){let id=id0;if(used.has(id)&&used.get(id)!==k){id=uid();canonical.set(k,id)}used.set(id,k)}
+  for(const e of entries)maps[e.src].set(e.c.id,canonical.get(e.key));
+  const merged=[];
+  // Rebuild parent IDs from canonical paths, preserving the local category object when available.
+  const byKey=new Map();for(const e of entries){if(!byKey.has(e.key)||e.src==="local")byKey.set(e.key,e)}
+  for(const [key,e] of byKey){const parentKey=e.path.length>1?e.path.slice(0,-1).map(normText).join("\u001f"):null;merged.push({...e.c,id:canonical.get(key),parentId:parentKey?canonical.get(parentKey)||null:null})}
+  return {categories:merged,maps};
+}
+function remapSnapshot(raw,sourceName,categoryMaps,canonicalCats){
+  const data=raw&&typeof raw==="object"?raw:{};const cats=data.categories||[];const map=categoryMaps[sourceName]||new Map();
+  const bookmarks=(data.bookmarks||[]).map(x=>{
+    const b={...x};
+    if(b.categoryId&&map.has(b.categoryId))b.categoryId=map.get(b.categoryId);
+    if(!b.categoryId&&b.categoryPath?.length){const key=b.categoryPath.map(normText).join("\u001f");const c=canonicalCats.find(z=>categoryPathFrom(canonicalCats,z.id).map(normText).join("\u001f")==key);if(c)b.categoryId=c.id}
+    return b;
+  });
+  const tags=(data.registeredTags||[]).map(x=>typeof x==="string"?{name:x}:x).filter(Boolean).map(x=>{const r={...x};if(r.topCategoryId&&map.has(r.topCategoryId))r.topCategoryId=map.get(r.topCategoryId);return r});
+  return {bookmarks,registeredTags:tags,visibleKinds:data.visibleKinds};
 }
 async function cloudSnapshot(){
-  return {
-    schemaVersion:SYNC_SCHEMA_VERSION,
-    exportedAt:new Date().toISOString(),
-    bookmarks:await all(SB),
-    registeredTags:await all(ST),
-    categories:await all(SC),
-    visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")
-  };
+  return {schemaVersion:SYNC_SCHEMA_VERSION,exportedAt:new Date().toISOString(),bookmarks:await all(SB),registeredTags:await all(ST),categories:await all(SC),visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")};
 }
-async function replaceLocalFromCloud(data){
-  if(!data||typeof data!=="object")throw new Error("클라우드 데이터 형식이 올바르지 않습니다.");
+async function mergedSnapshot(localData,cloudData){
+  const lc=localData?.categories||[],cc=cloudData?.categories||[];const cm=mergeCategorySets(lc,cc);const l=remapSnapshot(localData,"local",cm.maps,cm.categories);const c=remapSnapshot(cloudData,"cloud",cm.maps,cm.categories);
+  const bm=new Map();const byId=new Map();
+  for(const x of l.bookmarks){if(!x?.url)continue;const k=bookmarkKey(x);bm.set(k,x);if(x.id)byId.set(x.id,k)}
+  for(const x of c.bookmarks){if(!x?.url)continue;let k=x.id&&byId.get(x.id);if(!k)k=bookmarkKey(x);if(bm.has(k)){const merged=mergeBookmark(bm.get(k),x);bm.delete(k);bm.set(k,merged);if(merged.id)byId.set(merged.id,k)}else{bm.set(k,x);if(x.id)byId.set(x.id,k)}}
+  const tr=new Map();for(const x of [...l.registeredTags,...c.registeredTags]){if(!x?.name)continue;const k=String(x.name);tr.set(k,{...(tr.get(k)||{}),...x,name:k,tags:uniqStrings([...(tr.get(k)?.tags||[]),...(x.tags||[])])})}
+  return {schemaVersion:SYNC_SCHEMA_VERSION,exportedAt:new Date().toISOString(),bookmarks:[...bm.values()],registeredTags:[...tr.values()],categories:cm.categories,visibleKinds:l.visibleKinds??c.visibleKinds??null};
+}
+async function applyMergedToLocal(data){
+  if(!data||typeof data!=="object")throw new Error("동기화 데이터 형식이 올바르지 않습니다.");
   applyingRemote=true;
   try{
-    const oldB=await all(SB),oldT=await all(ST),oldC=await all(SC);
-    for(const r of oldB)await del(SB,r.id,{skipSync:true});
-    for(const r of oldT)await del(ST,r.name,{skipSync:true});
-    for(const r of oldC)await del(SC,r.id,{skipSync:true});
-    for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
-    for(const r0 of (data.registeredTags||[])){const r=typeof r0==="string"?{name:r0}:r;if(r?.name)await put(ST,r,{skipSync:true});}
-    for(const r of (data.categories||[]))if(r?.id)await put(SC,r,{skipSync:true});
-    if(Array.isArray(data.visibleKinds))localStorage.setItem("tagmark-visible-kinds",JSON.stringify(data.visibleKinds));
+    const local=await cloudSnapshot();const merged=await mergedSnapshot(local,data);
+    // Merge-only: update/add records, never delete anything already present locally.
+    const existingB=await all(SB),existingT=await all(ST),existingC=await all(SC);
+    for(const r of merged.categories||[])if(r?.id)await put(SC,r,{skipSync:true});
+    for(const r of merged.registeredTags||[])if(r?.name)await put(ST,r,{skipSync:true});
+    const existingByUrl=new Map(existingB.map(x=>[normalizeUrl(x.url),x]));
+    for(const r of merged.bookmarks||[]){if(!r?.id)continue;const ex=existingByUrl.get(normalizeUrl(r.url));await put(SB,ex?mergeBookmark(ex,r):r,{skipSync:true})}
+    if(Array.isArray(merged.visibleKinds))localStorage.setItem("tagmark-visible-kinds",JSON.stringify(merged.visibleKinds));
     await refresh();
-    localStorage.removeItem("tagmark-local-dirty-at");
   }finally{applyingRemote=false}
 }
-async function fetchCloud(){
-  const {data,error}=await supabaseClient.from("tagmark_files").select("data,updated_at").eq("user_id",syncUser.id).eq("file_id",CLOUD_FILE_ID).maybeSingle();
-  if(error)throw error;
-  return data||null;
-}
+async function fetchCloud(){const {data,error}=await supabaseClient.from("tagmark_files").select("data,updated_at").eq("user_id",syncUser.id).eq("file_id",CLOUD_FILE_ID).maybeSingle();if(error)throw error;return data||null}
 async function pushCloud(reason="auto"){
-  if(!syncUser||!supabaseClient||syncBusy)return false;
-  syncBusy=true;setSyncStatus(reason==="manual"?"클라우드에 저장 중…":"변경사항 저장 중…","busy");
+  if(!syncUser||!supabaseClient||syncBusy)return false;syncBusy=true;setSyncStatus(reason==="manual"?"클라우드 병합 저장 중…":"변경사항 병합 저장 중…","busy");
   try{
-    const payload=await cloudSnapshot();
-    const {data,error}=await supabaseClient.from("tagmark_files").upsert({
-      file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:payload,updated_at:new Date().toISOString()
-    },{onConflict:"user_id,file_id"}).select("updated_at").single();
-    if(error)throw error;
-    localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(data?.updated_at||"")||Date.now()));
-    localStorage.removeItem("tagmark-local-dirty-at");
-    setSyncStatus("동기화됨 · 실시간 연결 대기","ok");
-    return true;
-  }catch(e){console.error(e);setSyncStatus("동기화 실패: "+(e.message||e),"err");return false}
-  finally{syncBusy=false}
+    const local=await cloudSnapshot();const cloud=await fetchCloud();const payload=cloud?await mergedSnapshot(local,cloud.data):local;
+    // Never replace cloud with a smaller snapshot. This upsert writes the merged union only.
+    const {data,error}=await supabaseClient.from("tagmark_files").upsert({file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:"user_id,file_id"}).select("updated_at").single();
+    if(error)throw error;await applyMergedToLocal(payload);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(data?.updated_at||"")||Date.now()));localStorage.removeItem("tagmark-local-dirty-at");setSyncStatus("동기화됨 · 기존 데이터 보존","ok");return true;
+  }catch(e){console.error(e);setSyncStatus("동기화 실패: "+(e.message||e),"err");return false}finally{syncBusy=false}
 }
-function scheduleCloudPush(){
-  if(applyingRemote||!syncUser||!supabaseClient)return;
-  markLocalDirty();clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud("auto"),700);
-}
+function scheduleCloudPush(){if(applyingRemote||!syncUser||!supabaseClient)return;markLocalDirty();clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud("auto"),700)}
 async function initialReconcile(){
-  if(!syncUser||!supabaseClient)return;
-  setSyncStatus("클라우드와 로컬 데이터 확인 중…","busy");
-  try{
-    const cloud=await fetchCloud();
-    const dirtyAt=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
-    if(!cloud){
-      const local=await cloudSnapshot();
-      const hasLocal=local.bookmarks.length||local.registeredTags.length||local.categories.length;
-      if(hasLocal){
-        if(confirm("이 계정의 클라우드 파일이 없습니다.\n현재 기기의 Tagmark 데이터를 새 클라우드 파일로 올릴까요?"))await pushCloud("manual");
-        else setSyncStatus("클라우드 파일 없음 · 로컬 유지","ok");
-      }else setSyncStatus("새 클라우드 파일 · 동기화 준비됨","ok");
-      return;
-    }
-    const cloudAt=Date.parse(cloud.updated_at||"")||0;
-    if(dirtyAt && dirtyAt>cloudAt){
-      const choice=confirm("이 기기에서 클라우드보다 최근에 변경한 로컬 데이터가 있습니다.\n\n확인: 로컬 데이터를 클라우드에 저장\n취소: 클라우드 데이터를 현재 기기에 적용");
-      if(choice)await pushCloud("manual");
-      else{await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터 적용됨","ok");}
-    }else{
-      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터 적용됨 · 실시간 연결됨","ok");
-    }
+  if(!syncUser||!supabaseClient)return;setSyncStatus("클라우드와 로컬 데이터 병합 중…","busy");
+  try{const cloud=await fetchCloud();const local=await cloudSnapshot();
+    if(!cloud){const hasLocal=local.bookmarks.length||local.registeredTags.length||local.categories.length;if(hasLocal)await pushCloud("manual");else setSyncStatus("새 클라우드 파일 · 동기화 준비됨","ok");return}
+    const merged=await mergedSnapshot(local,cloud.data);await applyMergedToLocal(merged);await supabaseClient.from("tagmark_files").upsert({file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:merged,updated_at:new Date().toISOString()},{onConflict:"user_id,file_id"});localStorage.setItem("tagmark-last-cloud-sync",String(Date.now()));localStorage.removeItem("tagmark-local-dirty-at");setSyncStatus("로컬 + 클라우드 병합 완료 · 기존 데이터 보존","ok");
   }catch(e){console.error(e);setSyncStatus("초기 동기화 실패: "+(e.message||e),"err")}
 }
-async function pullCloud({force=false}={}){
-  if(!syncUser||!supabaseClient)return;
-  setSyncStatus("클라우드 확인 중…","busy");
-  try{
-    const cloud=await fetchCloud();
-    if(!cloud){setSyncStatus("클라우드 파일이 없습니다.","");return;}
-    if(force){
-      if(!confirm("클라우드의 Tagmark 데이터를 현재 기기에 적용할까요?\n현재 기기의 로컬 데이터는 클라우드 데이터로 교체됩니다."))return;
-      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(cloud.updated_at||"")||Date.now()));setSyncStatus("클라우드에서 가져옴","ok");
-    }else await initialReconcile();
-  }catch(e){setSyncStatus("클라우드 읽기 실패: "+e.message,"err")}
-}
+async function pullCloud(){if(!syncUser||!supabaseClient)return;setSyncStatus("클라우드와 병합 중…","busy");try{const cloud=await fetchCloud();if(!cloud){setSyncStatus("클라우드 파일이 없습니다.","");return}const local=await cloudSnapshot();const merged=await mergedSnapshot(local,cloud.data);await applyMergedToLocal(merged);await supabaseClient.from("tagmark_files").upsert({file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:merged,updated_at:new Date().toISOString()},{onConflict:"user_id,file_id"});localStorage.setItem("tagmark-last-cloud-sync",String(Date.now()));localStorage.removeItem("tagmark-local-dirty-at");setSyncStatus("클라우드 + 현재 기기 병합 완료","ok")}catch(e){setSyncStatus("클라우드 병합 실패: "+e.message,"err")}}
 async function startRealtime(){
   if(syncChannel)await supabaseClient.removeChannel(syncChannel);
   syncChannel=supabaseClient.channel("tagmark-file-"+syncUser.id)
-    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{
-      if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;
-      const remoteAt=Date.parse(payload.new.updated_at||"")||0;
-      const localDirty=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
-      const lastCloud=Number(localStorage.getItem("tagmark-last-cloud-sync")||0);
-      if(localDirty>remoteAt){setSyncStatus("다른 기기 변경 감지 · 이 기기의 최근 변경을 보호함","busy");return;}
-      if(remoteAt && remoteAt<=lastCloud)return;
-      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(remoteAt||Date.now()));setSyncStatus("다른 기기 변경사항 적용됨","ok");}catch(e){console.error(e);setSyncStatus("원격 변경 적용 실패","err")}
-    })
-    .on("postgres_changes",{event:"INSERT",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{
-      if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;
-      const localDirty=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
-      if(localDirty){setSyncStatus("클라우드 파일 생성됨 · 로컬 변경 확인 필요","busy");return;}
-      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(payload.new.updated_at||"")||Date.now()));setSyncStatus("클라우드 파일 가져옴","ok");}catch(e){console.error(e);setSyncStatus("클라우드 파일 적용 실패","err")}
-    })
-    .subscribe(status=>{if(status==="SUBSCRIBED"){syncReady=true;setSyncStatus("실시간 동기화 연결됨","ok")}else if(status==="CHANNEL_ERROR")setSyncStatus("실시간 연결 오류 · 재연결 중…","err")});
+    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;try{const local=await cloudSnapshot();const merged=await mergedSnapshot(local,payload.new.data);await applyMergedToLocal(merged);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(payload.new.updated_at||"")||Date.now()));setSyncStatus("다른 기기 변경사항 병합됨 · 기존 데이터 보존","ok")}catch(e){console.error(e);setSyncStatus("원격 변경 병합 실패","err")}})
+    .on("postgres_changes",{event:"INSERT",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;try{const local=await cloudSnapshot();const merged=await mergedSnapshot(local,payload.new.data);await applyMergedToLocal(merged);setSyncStatus("클라우드 파일 병합됨 · 기존 데이터 보존","ok")}catch(e){console.error(e);setSyncStatus("클라우드 파일 병합 실패","err")}})
+    .subscribe(status=>{if(status==="SUBSCRIBED"){syncReady=true;setSyncStatus("실시간 동기화 연결됨 · 삭제 없는 병합","ok")}else if(status==="CHANNEL_ERROR")setSyncStatus("실시간 연결 오류 · 재연결 중…","err")});
 }
 async function initSupabaseSync(){
-  setSyncButtons();
-  if(!syncConfigured()){setSyncStatus("Supabase 동기화 설정 필요","");return;}
-  try{
-    const mod=await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-    supabaseClient=mod.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-    const {data:{session}}=await supabaseClient.auth.getSession();
-    syncUser=session?.user||null;setSyncButtons();
-    if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
-    supabaseClient.auth.onAuthStateChange(async (_event,session2)=>{
-      const nextUser=session2?.user||null;
-      if(nextUser?.id===syncHandledUserId && _event==="INITIAL_SESSION")return;
-      syncUser=nextUser;setSyncButtons();
-      if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
-      else{if(syncChannel)await supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;setSyncStatus("로그아웃됨","");}
-    });
-  }catch(e){console.error(e);setSyncStatus("Supabase 초기화 실패: "+(e.message||e),"err")}
+  setSyncButtons();if(!syncConfigured()){setSyncStatus("Supabase 동기화 설정 필요","");return}
+  try{const mod=await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");supabaseClient=mod.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const {data:{session}}=await supabaseClient.auth.getSession();syncUser=session?.user||null;setSyncButtons();if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile()}supabaseClient.auth.onAuthStateChange(async(_event,session2)=>{const nextUser=session2?.user||null;if(nextUser?.id===syncHandledUserId&&_event==="INITIAL_SESSION")return;syncUser=nextUser;setSyncButtons();if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile()}else{if(syncChannel)await supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;setSyncStatus("로그아웃됨","")}})}catch(e){console.error(e);setSyncStatus("Supabase 초기화 실패: "+(e.message||e),"err")}
 }
-$("syncLoginBtn").onclick=async()=>{
-  if(!syncConfigured()){alert("Supabase 설정이 올바르지 않습니다.");return}
-  const email=prompt("Supabase 로그인 이메일");if(!email)return;const password=prompt("비밀번호");if(!password)return;
-  setSyncStatus("로그인 중…","busy");
-  const {error}=await supabaseClient.auth.signInWithPassword({email:email.trim(),password});
-  if(error){
-    if(confirm("로그인에 실패했습니다.\n\n새 계정을 만들까요?")){
-      const r=await supabaseClient.auth.signUp({email:email.trim(),password});
-      if(r.error)alert("회원가입 실패: "+r.error.message);else alert("회원가입 요청이 완료되었습니다. 이메일 확인이 켜져 있다면 받은 메일에서 인증한 뒤 로그인하세요.");
-    }
-    setSyncStatus("로그인 실패","err");
-  }
-};
+$("syncLoginBtn").onclick=async()=>{if(!syncConfigured()){alert("Supabase 설정이 올바르지 않습니다.");return}const email=prompt("Supabase 로그인 이메일");if(!email)return;const password=prompt("비밀번호");if(!password)return;setSyncStatus("로그인 중…","busy");const {error}=await supabaseClient.auth.signInWithPassword({email:email.trim(),password});if(error){if(confirm("로그인에 실패했습니다.\n\n새 계정을 만들까요?")){const r=await supabaseClient.auth.signUp({email:email.trim(),password});if(r.error)alert("회원가입 실패: "+r.error.message);else alert("회원가입 요청이 완료되었습니다. 이메일 확인이 켜져 있다면 받은 메일에서 인증한 뒤 로그인하세요.")}setSyncStatus("로그인 실패","err")}};
 $("syncLogoutBtn").onclick=async()=>{await supabaseClient?.auth.signOut()};
-$("syncPushBtn").onclick=async()=>{if(confirm("현재 기기의 데이터를 고정 클라우드 파일에 저장할까요? 다른 기기의 데이터도 이 버전으로 갱신됩니다."))await pushCloud("manual")};
-$("syncPullBtn").onclick=async()=>pullCloud({force:true});
+$("syncPushBtn").onclick=async()=>{if(confirm("현재 기기와 클라우드의 데이터를 병합해 저장할까요? 동기화 과정에서는 기존 데이터가 삭제되지 않습니다."))await pushCloud("manual")};
+$("syncPullBtn").onclick=async()=>{if(confirm("클라우드와 현재 기기의 데이터를 병합할까요? 기존 데이터는 삭제되지 않습니다."))await pullCloud()};
 
 /** URL 정규화 */
 function normalizeUrl(u){
@@ -508,7 +483,18 @@ const resolvePath=(s,under)=>!s?.trim()?under||null:ensurePath(s.split(/[/＞>]/
 async function refresh(){
   items=await all(SB);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;categories=await all(SC);
   for(const row of registeredTagMeta){if(row?.profile&&!row.topCategoryId){const rid=profileTopCategoryId(row);if(rid){row.topCategoryId=rid;row.topCategoryPath=catPath(rid);await put(ST,row)}}}
-  for(const x of items){if(x.category&&!x.categoryId){const id=await resolvePath(x.category,null);if(id){x.categoryId=id;delete x.category;await put(SB,x)}}}
+  for(const x of items){
+    let changed=false;
+    if(x.categoryId&&!getCat(x.categoryId)){
+      let id=null;
+      if(Array.isArray(x.categoryPath)&&x.categoryPath.length)id=await ensurePath(x.categoryPath,null);
+      else if(x.category)id=await resolvePath(x.category,null);
+      if(id){x.categoryId=id;changed=true}
+      else {x.categoryId=null;changed=true}
+    }
+    if(x.category&&!x.categoryId){const id=await resolvePath(x.category,null);if(id){x.categoryId=id;changed=true}}
+    if(changed){delete x.categoryPath;delete x.category;await put(SB,x,{skipSync:true})}
+  }
   const used=new Set();items.forEach(x=>{(x.tags||[]).forEach(t=>used.add(t));(x.characters||[]).forEach(ch=>(ch.tags||[]).forEach(t=>used.add(t)))});
   registeredTags.forEach(t=>used.add(t));registeredTags=[...used].sort((a,b)=>a.localeCompare(b,"ko"));
   if(activeTopId&&!getCat(activeTopId))activeTopId=null;
@@ -913,11 +899,14 @@ async function importData(text,name){
     const tags=[...new Set((raw.tags||[]).filter(Boolean))];
     for(const t of tags)if(!registeredTags.includes(t)){await put(ST,{name:t});registeredTags.push(t)}
     let categoryId=raw.categoryId||null;
+    // Imported IDs may belong to another Tagmark database/device. Never keep an orphan ID:
+    // resolve by category path/name first, then use the current import scope.
+    if(categoryId&&!getCat(categoryId))categoryId=null;
     if(!categoryId&&raw.categoryPath?.length)categoryId=await ensurePath(raw.categoryPath,under);
     else if(!categoryId&&raw.category)categoryId=await resolvePath(raw.category,under);
     else if(!categoryId)categoryId=under;
     const item={id:raw.id||uid(),url,title:raw.title?.trim()||url,categoryId,tags,
-      characters:raw.characters||[],notes:raw.notes||"",metaType:raw.metaType||"",
+      categoryPath:raw.categoryPath||null,characters:raw.characters||[],notes:raw.notes||"",metaType:raw.metaType||"",
       pages:raw.pages??null,duration:raw.duration??null,createdAt:raw.createdAt||now,updatedAt:now};
     await put(SB,item);items.push(item);added++;
   }
