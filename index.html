@@ -107,8 +107,8 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   <span class="sync-status" id="syncStatus">Supabase 동기화: 설정 필요</span>
   <span class="sync-user" id="syncUser"></span>
   <button class="btn sm" id="syncLoginBtn">로그인</button>
-  <button class="btn sm hidden" id="syncPushBtn">로컬 → 클라우드 덮어쓰기</button>
-  <button class="btn sm hidden" id="syncPullBtn">클라우드 → 로컬 덮어쓰기</button>
+  <button class="btn sm hidden" id="syncPushBtn">클라우드에 업로드</button>
+  <button class="btn sm hidden" id="syncPullBtn">클라우드로부터 다운로드</button>
   <button class="btn sm hidden" id="syncLogoutBtn">로그아웃</button>
 </div>
 
@@ -293,7 +293,10 @@ async function replaceLocalFromCloud(data){
     for(const r of oldT)await del(ST,r.name,{skipSync:true});
     for(const r of oldC)await del(SC,r.id,{skipSync:true});
     for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
-    for(const r0 of (data.registeredTags||[])){const r=typeof r0==="string"?{name:r0}:r;if(r?.name)await put(ST,r,{skipSync:true});}
+    for(const r0 of (data.registeredTags||[])){
+  const tagRecord=typeof r0==="string"?{name:r0}:r0;
+  if(tagRecord?.name)await put(ST,tagRecord,{skipSync:true});
+}
     for(const r of (data.categories||[]))if(r?.id)await put(SC,r,{skipSync:true});
     if(Array.isArray(data.visibleKinds))localStorage.setItem("tagmark-visible-kinds",JSON.stringify(data.visibleKinds));
     else localStorage.removeItem("tagmark-visible-kinds");
