@@ -38,7 +38,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .search{flex:1;min-width:120px;padding:12px;border:1px solid var(--line);border-radius:11px;outline:0;margin:0}
 .select{padding:11px;border:1px solid var(--line);border-radius:11px;background:#fff;margin:0;width:auto}
 .stats{padding:10px 14px;color:var(--muted);font-size:13px}
-.cards{padding:0 12px 12px;display:grid;gap:9px}
+.cards{padding:0 12px 12px;display:flex;flex-direction:column;gap:9px;align-items:stretch;min-width:0}.cards>*{flex:0 0 auto;min-width:0}
 .bulkbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:#fafbfe}.bulkbar .count{font-size:12px;color:var(--muted);font-weight:700;margin-right:auto}.card-select{width:auto!important;margin:0 0 0 8px;vertical-align:middle;order:2}.card-title-row{display:flex;align-items:flex-start;gap:8px}.card-title-row .card-title{flex:1;order:1}.card-title-row .card-select{align-self:flex-start;order:2;margin-top:2px}.card-title-row .card-title a{color:inherit;text-decoration:none}.card-title-row .card-title a:hover{text-decoration:underline}
 .card{border:1px solid var(--line);border-radius:13px;padding:13px}
 .card-title{font-weight:700;overflow-wrap:anywhere}
@@ -119,7 +119,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   #ws-main .bulkbar{padding:5px 7px;gap:4px}
   #ws-main .bulkbar .btn{padding:5px 7px;font-size:10px}
   #ws-main .bulkbar .count{font-size:10px}
-  #ws-main .cards{padding:0 7px 7px;gap:6px}
+  #ws-main .cards{padding:0 7px 7px;gap:6px;display:flex;flex-direction:column;align-items:stretch}
   #ws-main .card{padding:10px}
   .tabs{gap:1px}
   .tab{padding:7px 10px;font-size:12px}
@@ -137,14 +137,15 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   #ws-main .bulkbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap}
   #ws-main .bulkbar .count{flex:0 0 auto;margin-right:2px}
 }
-.bookmark-folder{grid-column:1 / -1;display:block;position:relative;z-index:2;width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;margin:7px 0;overflow:hidden;background:var(--panel);isolation:isolate}.bookmark-folder *{box-sizing:border-box}.folder-head{display:block;position:relative;z-index:1;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--panel)}.folder-title-row{display:flex;align-items:flex-start;gap:8px;min-width:0}.folder-toggle{border:0;background:transparent;font:inherit;font-weight:700;cursor:pointer;text-align:left;flex:1;min-width:0;padding:0;overflow-wrap:anywhere}.folder-meta{color:var(--muted);font-size:12px;flex:0 0 auto}.folder-info{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:7px}.folder-info .info-item{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere}.folder-body{display:block;position:relative;padding:0 7px 7px;background:var(--panel)}.sort-dir{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
-.bookmark-folder{grid-column:1 / -1 !important;justify-self:stretch !important;align-self:start !important}.folder-info{display:flex !important;flex-direction:column !important;align-items:flex-start !important}.folder-info .info-item{width:100% !important}
+.bookmark-folder{grid-column:1 / -1;display:block;position:relative;z-index:2;width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;margin:7px 0;overflow:hidden;background:var(--panel);isolation:isolate}.bookmark-folder *{box-sizing:border-box}.folder-head{display:block;position:relative;z-index:1;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--panel)}.folder-title-row{display:flex;align-items:flex-start;gap:8px;min-width:0}.folder-toggle{border:0;background:transparent;font:inherit;font-weight:700;cursor:pointer;text-align:left;flex:1;min-width:0;padding:0;overflow-wrap:anywhere}.folder-meta{color:var(--muted);font-size:12px;flex:0 0 auto}.folder-info{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:7px}.folder-info .info-item{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere}.folder-body{display:flex;flex-direction:column;position:relative;clear:both;width:100%;padding:0 7px 7px;background:var(--panel);box-sizing:border-box;gap:9px}.folder-body>.card{flex:0 0 auto;width:100%;min-width:0;box-sizing:border-box}.sort-dir{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
+.bookmark-folder{display:block!important;width:100%!important;min-width:0!important;position:relative!important;clear:both!important;grid-column:auto!important;justify-self:stretch!important;align-self:stretch!important;flex:0 0 auto!important;contain:layout paint}.folder-info{display:flex !important;flex-direction:column !important;align-items:flex-start !important}.folder-info .info-item{width:100% !important}
+.folder-title-row .btn{flex:0 0 auto}.folder-title-row .meta{flex:0 0 auto}.bookmark-folder .card{margin-left:0;margin-right:0}.bulkbar{overflow-x:auto}.bulkbar>*{flex:0 0 auto}
 </style>
 </head>
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.22 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.25 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -198,7 +199,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
       <select class="select" id="subCatFilter"><option value="">하위 전체</option></select><button type="button" class="btn sm sort-dir" id="sortDirBtn">내림차순</button>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="bulkbar hidden" id="bulkBar"><span class="count" id="bulkCount">0개 선택</span><button class="btn sm" id="bulkSelectAll">현재 목록 전체 선택</button><button class="btn sm" id="bulkClear">선택 해제</button><button class="btn sm primary" id="bulkAddTag">태그 추가</button><button class="btn sm" id="bulkCreateFolder">폴더 생성</button><button class="btn sm" id="bulkPasteChars">등장인물 붙여넣기</button></div>
+    <div class="bulkbar hidden" id="bulkBar"><span class="count" id="bulkCount">0개 선택</span><button class="btn sm" id="bulkSelectAll">현재 목록 전체 선택</button><button class="btn sm" id="bulkClear">선택 해제</button><button class="btn sm primary" id="bulkAddTag">태그 추가</button><button class="btn sm" id="bulkCreateFolder">폴더 생성</button><button class="btn sm" id="bulkRemoveFromFolder">폴더에서 제외</button><button class="btn sm" id="bulkPasteChars">등장인물 붙여넣기</button></div>
     <div class="cards" id="cards"></div>
   </div>
   <!-- 워크스페이스: 태그 관리 -->
@@ -239,8 +240,8 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 </div>
 </div>
 
-<!-- 북마크 폴더 생성 모달 -->
-<div class="modal" id="folderModal"><div class="dialog"><h2>북마크 폴더 생성</h2><div class="field"><label>폴더 제목</label><input id="folderTitle" placeholder="폴더 제목"></div><div class="field picker"><label>Artist</label><input id="folderArtist" placeholder="기존 Artist 태그 검색"><div class="suggest" id="folderArtistSuggest"></div></div><div class="field picker"><label>Series</label><input id="folderSeries" placeholder="기존 Series 태그 검색"><div class="suggest" id="folderSeriesSuggest"></div></div><div class="hint">Artist / Series는 기존에 등록된 태그만 선택할 수 있습니다.</div><div class="modal-actions"><button class="btn" id="folderCancel">취소</button><button class="btn primary" id="folderApply">생성</button></div></div></div>
+<!-- 북마크 폴더 생성/수정 모달 -->
+<div class="modal" id="folderModal"><div class="dialog"><h2 id="folderModalTitle">북마크 폴더 생성</h2><div class="field"><label>폴더 제목</label><input id="folderTitle" placeholder="폴더 제목"></div><div class="field picker"><label>Artist</label><input id="folderArtist" placeholder="기존 Artist 태그 검색"><div class="suggest" id="folderArtistSuggest"></div></div><div class="field picker"><label>Series</label><input id="folderSeries" placeholder="기존 Series 태그 검색"><div class="suggest" id="folderSeriesSuggest"></div></div><div class="hint">Artist / Series는 기존에 등록된 태그만 선택할 수 있습니다.</div><div class="modal-actions"><button class="btn danger" id="folderDelete" style="margin-right:auto">폴더 삭제</button><button class="btn" id="folderCancel">취소</button><button class="btn primary" id="folderApply">생성</button></div></div></div>
 
 <!-- 일괄 태그 추가 모달 -->
 <div class="modal" id="bulkTagModal">
@@ -302,7 +303,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
         <input id="durS" type="number" min="0" max="59" value="0"></div>
     </div>
     <div class="field"><label>Note</label><textarea id="notes" placeholder=""></textarea></div>
-    <div class="modal-actions"><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div>
+    <div class="modal-actions"><button class="btn" id="cloneEditBtn">복제</button><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div>
   </div>
 </div>
 
@@ -765,37 +766,90 @@ async function addCat(name,parentId=null){
 function folderSortValue(f,sort){if(sort==="title")return f.title||"";if(sort==="artist")return f.artist||"";if(sort==="series")return f.series||"";if(sort==="production")return "";return f.updatedAt||0;}
 function renderResults(){
   const matched=getFiltered(), sort=$("sort").value, desc=sortDesc;
-  // 폴더는 내부 북마크 중 하나라도 검색/필터에 걸리면 폴더 전체를 하나의 단위로 표시한다.
-  // 검색/필터가 없으면 모든 폴더를 표시한다.
-  const matchedIds=new Set(matched.map(x=>x.id));
   const queryText=$("search").value.trim().toLowerCase();
   const folderIds=new Set(matched.filter(x=>x.folderId&&folders.some(f=>f.id===x.folderId)).map(x=>x.folderId));
-  if(queryText){for(const f of folders){const hay=[f.title,f.artist,f.series].filter(Boolean).join(" ").toLowerCase();if(hay.includes(queryText))folderIds.add(f.id)}}
-  const hasQuery=queryText || (tagStates.include||[]).length || (tagStates.exclude||[]).length || $("subCatFilter")?.value;
+  if(queryText){
+    for(const f of folders){
+      const hay=[f.title,f.artist,f.series].filter(Boolean).join(" ").toLowerCase();
+      if(hay.includes(queryText))folderIds.add(f.id);
+    }
+  }
+  const hasQuery=!!(queryText || (tagStates.include||[]).length || (tagStates.exclude||[]).length || $("subCatFilter")?.value);
   const grouped=new Map(),entities=[];
-  const folderItems=new Map();
+
+  // A folder is one atomic result. Its members never become independent
+  // top-level cards while that folder is visible.
   for(const f of folders){
     const children=items.filter(x=>x.folderId===f.id);
-    folderItems.set(f.id,children);
-    if(!hasQuery || folderIds.has(f.id)) grouped.set(f.id,children);
+    if(!hasQuery || folderIds.has(f.id)){
+      // Folder members are ALWAYS title-sorted, independent of the global sort.
+      children.sort((a,b)=>{
+        const c=String(a.title||"").localeCompare(String(b.title||""),"ko");
+        return desc?-c:c;
+      });
+      grouped.set(f.id,children);
+    }
   }
+
   const folderMemberIds=new Set();
-  for(const [id,arr] of grouped)for(const x of arr)folderMemberIds.add(x.id);
+  for(const arr of grouped.values())for(const x of arr)folderMemberIds.add(x.id);
+
   for(const x of matched){
-    if(x.folderId&&grouped.has(x.folderId)) continue;
-    if(!x.folderId) entities.push({type:"bookmark",item:x});
-    else if(!folderMemberIds.has(x.id)) entities.push({type:"bookmark",item:x});
+    if(x.folderId&&folderMemberIds.has(x.id))continue;
+    if(!x.folderId)entities.push({type:"bookmark",item:x});
   }
-  for(const [id,arr] of grouped){const f=folders.find(v=>v.id===id);if(f)entities.push({type:"folder",item:f,children:arr})}
-  entities.sort((a,b)=>{const av=a.type==="folder"?folderSortValue(a.item,sort):sortValue(a.item,sort),bv=b.type==="folder"?folderSortValue(b.item,sort):sortValue(b.item,sort);const c=typeof av==="number"?av-bv:String(av).localeCompare(String(bv),"ko");return desc?-c:c});
+  for(const [id,arr] of grouped){
+    const f=folders.find(v=>v.id===id);
+    if(f)entities.push({type:"folder",item:f,children:arr});
+  }
+
+  // Folders and standalone bookmarks are one common result list.
+  // The selected sort criterion is applied to both, so folders are mixed
+  // naturally with bookmarks instead of being forced to the top/bottom.
+  entities.sort((a,b)=>{
+    const av=a.type==="folder"?folderSortValue(a.item,sort):sortValue(a.item,sort);
+    const bv=b.type==="folder"?folderSortValue(b.item,sort):sortValue(b.item,sort);
+    const c=typeof av==="number" && typeof bv==="number"
+      ? av-bv
+      : String(av??"").localeCompare(String(bv??""),"ko");
+    if(c!==0)return desc?-c:c;
+    // Stable deterministic tie-breaker: title, then id.
+    const at=String(a.item.title||""),bt=String(b.item.title||"");
+    const tc=at.localeCompare(bt,"ko");
+    if(tc!==0)return tc;
+    return String(a.item.id||"").localeCompare(String(b.item.id||""));
+  });
+
   let html=entities.map(e=>{
-    if(e.type==="bookmark") return card(e.item);
-    const f=e.item, open=expanded.has(f.id);
-    const artist=f.artist?tagMarkup(f.artist):"", series=f.series?tagMarkup(f.series):"";
-    return '<section class="bookmark-folder '+(open?'open':'')+'" data-folder="'+esc(f.id)+'"><div class="folder-head"><div class="folder-title-row"><button type="button" class="folder-toggle" data-folder-toggle="'+esc(f.id)+'">'+(open?'▼':'▶')+' '+esc(f.title||"폴더")+'</button><span class="meta">'+e.children.length+'개</span></div><div class="folder-info">'+(artist?'<div class="info-item"><b>Artist</b> '+artist+'</div>':"")+(series?'<div class="info-item"><b>Series</b> '+series+'</div>':"")+'</div></div>'+(open?'<div class="folder-body">'+e.children.map(card).join("")+'</div>':"")+'</section>';
+    if(e.type==="bookmark")return card(e.item);
+    const f=e.item,open=expanded.has(f.id);
+    const artist=f.artist?tagMarkup(f.artist):"",series=f.series?tagMarkup(f.series):"";
+    return '<section class="bookmark-folder '+(open?'open':'')+'" data-folder="'+esc(f.id)+'">'+
+      '<div class="folder-head">'+
+        '<div class="folder-title-row">'+
+          '<button type="button" class="folder-toggle" data-folder-toggle="'+esc(f.id)+'">'+(open?'▼':'▶')+' '+esc(f.title||"폴더")+'</button>'+
+          '<span class="meta">'+e.children.length+'개</span>'+
+          '<button type="button" class="btn sm" data-folder-edit="'+esc(f.id)+'">수정</button>'+
+        '</div>'+
+        '<div class="folder-info">'+
+          (artist?'<div class="info-item"><b>Artist</b> '+artist+'</div>':"")+
+          (series?'<div class="info-item"><b>Series</b> '+series+'</div>':"")+
+        '</div>'+
+      '</div>'+
+      (open?'<div class="folder-body">'+e.children.map(card).join("")+'</div>':"")+
+    '</section>';
   }).join("");
-  $("stats").textContent=matched.length+"개 표시 · 폴더 "+grouped.size+"개";$("cards").innerHTML=html||'<div class="empty">북마크가 없습니다.</div>';if(html)bindCards();
-  $("cards").querySelectorAll('[data-folder-toggle]').forEach(b=>b.onclick=()=>{const id=b.dataset.folderToggle;if(expanded.has(id))expanded.delete(id);else expanded.add(id);renderResults();updateBulkBar()});
+
+  $("stats").textContent=matched.length+"개 표시 · 폴더 "+grouped.size+"개";
+  $("cards").innerHTML=html||'<div class="empty">북마크가 없습니다.</div>';
+  if(html)bindCards();
+
+  $("cards").querySelectorAll('[data-folder-toggle]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.folderToggle;
+    if(expanded.has(id))expanded.delete(id);else expanded.add(id);
+    renderResults();updateBulkBar();
+  });
+  $("cards").querySelectorAll("[data-folder-edit]").forEach(b=>b.onclick=()=>showFolderEdit(b.dataset.folderEdit));
 }
 function characterIdentity(c){const identity=(c.tags||[]).find(t=>isIdentityTag(t));return identity?tagLabel(identity):"";}
 function characterDisplayName(c,allChars=[]){if(String(c?.name||"").trim())return String(c.name).trim();const id=characterIdentity(c);if(id){const p=id.indexOf(":");return id.slice(p+1).trim()||id}const g={male:"남성",female:"여성",both:"양성"}[c.gender]||"등장인물";const n=allChars.filter(x=>!String(x?.name||"").trim()&&!characterIdentity(x)&&x.gender===c.gender).indexOf(c)+1;return g+" "+(n>0?n:1);}
@@ -821,7 +875,12 @@ async function cloneBookmark(id){
   let title=base+" - 의 사본",n=2;
   while(items.some(v=>v.title===title)){title=base+" - 의 사본 "+n++;}
   const copy=structuredClone(x);copy.id=uid();copy.title=title;copy.createdAt=now;copy.updatedAt=now;
-  await put(SB,copy);selectedIds.clear();await refresh();
+  await put(SB,copy);await touchFolder(copy.folderId,now);await refresh();
+}
+async function cloneFromEdit(){
+  if(!editingId){alert("먼저 북마크를 저장한 뒤 복제할 수 있습니다.");return}
+  await cloneBookmark(editingId);
+  const b=$("cloneEditBtn");if(b){b.textContent="복제 완료";setTimeout(()=>{b.textContent="복제"},500)}
 }
 function copySelectedCharacters(){
   const picked=[...document.querySelectorAll('#charList [data-char-select]:checked')].map(b=>+b.dataset.charSelect);
@@ -883,8 +942,14 @@ function renderFolderSelections(){
   $("folderArtist").value=folderArtistSelection?tagLabel(folderArtistSelection):"";
   $("folderSeries").value=folderSeriesSelection?tagLabel(folderSeriesSelection):"";
 }
-async function createBookmarkFolder(){if(!selectedIds.size){alert("북마크를 먼저 선택하세요.");return}$("folderTitle").value="";folderArtistSelection="";folderSeriesSelection="";renderFolderSelections();$("folderModal").classList.add("open");$("folderTitle").focus()}
-async function applyBookmarkFolder(){const title=$("folderTitle").value.trim();if(!title){alert("폴더 제목을 입력하세요.");return}const ids=[...selectedIds],now=Date.now(),f={id:uid(),title,artist:folderArtistSelection||"",series:folderSeriesSelection||"",createdAt:now,updatedAt:now};await put(SF,f);folders.push(f);for(const id of ids){const x=items.find(v=>v.id===id);if(x){x.folderId=f.id;x.updatedAt=now;await put(SB,x)}}expanded.add(f.id);selectedIds.clear();$("folderModal").classList.remove("open");await refresh()}
+async function createBookmarkFolder(){if(!selectedIds.size){alert("북마크를 먼저 선택하세요.");return}$('folderModalTitle').textContent="북마크 폴더 생성";$('folderApply').textContent="생성";$('folderDelete').classList.add("hidden");$('folderTitle').value="";folderArtistSelection="";folderSeriesSelection="";folderEditingId=null;renderFolderSelections();$('folderModal').classList.add("open");$('folderTitle').focus()}
+let folderEditingId=null;
+function showFolderEdit(id){const f=folders.find(v=>v.id===id);if(!f)return;folderEditingId=id;$('folderModalTitle').textContent="북마크 폴더 수정";$('folderApply').textContent="저장";$('folderDelete').classList.remove("hidden");$('folderTitle').value=f.title||"";folderArtistSelection=f.artist||"";folderSeriesSelection=f.series||"";renderFolderSelections();$('folderModal').classList.add("open");$('folderTitle').focus()}
+async function applyBookmarkFolder(){const title=$('folderTitle').value.trim();if(!title){alert("폴더 제목을 입력하세요.");return}const now=Date.now();
+  if(folderEditingId){const f=folders.find(v=>v.id===folderEditingId);if(!f)return;f.title=title;f.artist=folderArtistSelection||"";f.series=folderSeriesSelection||"";f.updatedAt=now;await put(SF,f);folderEditingId=null;$('folderModal').classList.remove("open");await refresh();return}
+  const ids=[...selectedIds],f={id:uid(),title,artist:folderArtistSelection||"",series:folderSeriesSelection||"",createdAt:now,updatedAt:now};await put(SF,f);folders.push(f);for(const id of ids){const x=items.find(v=>v.id===id);if(x){x.folderId=f.id;x.updatedAt=now;await put(SB,x)}}expanded.add(f.id);selectedIds.clear();$('folderModal').classList.remove("open");await refresh()}
+async function deleteBookmarkFolder(){if(!folderEditingId)return;const f=folders.find(v=>v.id===folderEditingId);if(!f)return;if(!confirm('"'+(f.title||'폴더')+'"를 삭제할까요?\n폴더 안의 북마크는 삭제되지 않고 일반 목록으로 돌아옵니다.'))return;const now=Date.now();for(const x of items.filter(v=>v.folderId===f.id)){x.folderId=null;x.updatedAt=now;await put(SB,x)}await del(SF,f.id);folders=folders.filter(v=>v.id!==f.id);expanded.delete(f.id);folderEditingId=null;$('folderModal').classList.remove("open");await refresh()}
+async function removeSelectedFromFolders(){const targets=[...selectedIds].map(id=>items.find(x=>x.id===id)).filter(x=>x&&x.folderId);if(!targets.length){alert("폴더 안의 북마크를 먼저 선택하세요.");return}const now=Date.now();for(const x of targets){const fid=x.folderId;x.folderId=null;x.updatedAt=now;await put(SB,x);await touchFolder(fid,now)}selectedIds.clear();await refresh()}
 function bindCards(){
   $("cards").querySelectorAll("[data-select]").forEach(b=>b.onchange=()=>{const id=b.dataset.select;if(b.checked)selectedIds.add(id);else selectedIds.delete(id);updateBulkBar()});
   $("cards").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editItem(b.getAttribute("data-edit")));
@@ -1073,7 +1138,7 @@ $("addCharBtn").onclick=addOneChar;
 
 /* 편집 모달 */
 function showEdit(x){
-  editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";
+  editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";$("cloneEditBtn").classList.toggle("hidden",!x);
   $("url").value=x?.url||"";$("title").value=x?.title||"";$("notes").value=x?.notes||"";
   bookmarkSeriesSelection=(x?.tags||[]).find(t=>/^series:/i.test(tagLabel(t)))||"";bookmarkArtistSelection=(x?.tags||[]).find(t=>/^artist:/i.test(tagLabel(t)))||"";curTags=[...(x?.tags||[])].filter(t=>!/^series:/i.test(tagLabel(t))&&!/^artist:/i.test(tagLabel(t)));renderBookmarkSpecialSelections();
   // 하위 카테고리: 최상위가 아니면 그대로, 최상위만이면 null
@@ -1156,7 +1221,7 @@ $("bulkTagApply").onclick=applyBulkTag;
 $("bulkTagInput").oninput=e=>{showBulkTagSug(e.target.value);if(!e.target.value.trim())closeSuggest($("bulkTagSuggest"))};
 $("bulkTagInput").onfocus=e=>showBulkTagSug(e.target.value);
 document.querySelectorAll('input[name="bulkTagKind"]').forEach(r=>r.onchange=()=>showBulkTagSug($("bulkTagInput").value));
-$("bulkPasteChars").onclick=bulkPasteCharacters;$("bulkCreateFolder").onclick=createBookmarkFolder;$("folderCancel").onclick=()=>$("folderModal").classList.remove("open");$("folderApply").onclick=applyBookmarkFolder;
+$("bulkPasteChars").onclick=bulkPasteCharacters;$("bulkCreateFolder").onclick=createBookmarkFolder;$("bulkRemoveFromFolder").onclick=removeSelectedFromFolders;$("folderCancel").onclick=()=>{folderEditingId=null;$("folderModal").classList.remove("open")};$("folderApply").onclick=applyBookmarkFolder;$("folderDelete").onclick=deleteBookmarkFolder;$("cloneEditBtn").onclick=cloneFromEdit;
 window.removeItem=async id=>{if(confirm("삭제할까요?")){const x=items.find(v=>v.id===id);const fid=x?.folderId;await del(SB,id);await touchFolder(fid);await cleanupZeroUseTags();await refresh()}};
 $("addBtn").onclick=()=>showEdit();
 $("cancelBtn").onclick=()=>$("editModal").classList.remove("open");
