@@ -137,13 +137,14 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   #ws-main .bulkbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap}
   #ws-main .bulkbar .count{flex:0 0 auto;margin-right:2px}
 }
-.bookmark-folder{border:1px solid var(--line);border-radius:12px;margin:7px 0;overflow:hidden;background:var(--panel)}.folder-head{padding:11px 12px;border-bottom:1px solid var(--line)}.folder-title-row{display:flex;align-items:flex-start;gap:8px}.folder-toggle{border:0;background:transparent;font:inherit;font-weight:700;cursor:pointer;text-align:left;flex:1;padding:0}.folder-meta{color:var(--muted);font-size:12px}.folder-info{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.folder-info .info-item{font-size:13px}.folder-body{padding:0 7px 7px}.sort-dir{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
+.bookmark-folder{grid-column:1 / -1;display:block;position:relative;z-index:2;width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;margin:7px 0;overflow:hidden;background:var(--panel);isolation:isolate}.bookmark-folder *{box-sizing:border-box}.folder-head{display:block;position:relative;z-index:1;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--panel)}.folder-title-row{display:flex;align-items:flex-start;gap:8px;min-width:0}.folder-toggle{border:0;background:transparent;font:inherit;font-weight:700;cursor:pointer;text-align:left;flex:1;min-width:0;padding:0;overflow-wrap:anywhere}.folder-meta{color:var(--muted);font-size:12px;flex:0 0 auto}.folder-info{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:7px}.folder-info .info-item{display:block;font-size:13px;line-height:1.45;overflow-wrap:anywhere}.folder-body{display:block;position:relative;padding:0 7px 7px;background:var(--panel)}.sort-dir{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
+.bookmark-folder{grid-column:1 / -1 !important;justify-self:stretch !important;align-self:start !important}.folder-info{display:flex !important;flex-direction:column !important;align-items:flex-start !important}.folder-info .info-item{width:100% !important}
 </style>
 </head>
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.20 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.22 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -767,8 +768,10 @@ function renderResults(){
   // 폴더는 내부 북마크 중 하나라도 검색/필터에 걸리면 폴더 전체를 하나의 단위로 표시한다.
   // 검색/필터가 없으면 모든 폴더를 표시한다.
   const matchedIds=new Set(matched.map(x=>x.id));
+  const queryText=$("search").value.trim().toLowerCase();
   const folderIds=new Set(matched.filter(x=>x.folderId&&folders.some(f=>f.id===x.folderId)).map(x=>x.folderId));
-  const hasQuery=$("search").value.trim() || (tagStates.include||[]).length || (tagStates.exclude||[]).length || $("subCatFilter")?.value;
+  if(queryText){for(const f of folders){const hay=[f.title,f.artist,f.series].filter(Boolean).join(" ").toLowerCase();if(hay.includes(queryText))folderIds.add(f.id)}}
+  const hasQuery=queryText || (tagStates.include||[]).length || (tagStates.exclude||[]).length || $("subCatFilter")?.value;
   const grouped=new Map(),entities=[];
   const folderItems=new Map();
   for(const f of folders){
