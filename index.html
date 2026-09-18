@@ -85,7 +85,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 @media(max-width:760px){.app{padding-left:10px;padding-right:10px}.toolbar{width:100%}.toolbar .btn{flex:1}}
 .reg-tag-kinds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px 18px;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfe}.reg-tag-kinds label{display:flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;cursor:pointer;font-size:13px}.reg-tag-kinds input{margin:0;width:auto;flex:0 0 auto}.char-tag-picker{position:relative}.char-tag-suggest{position:absolute;z-index:20;left:0;right:0;top:100%;display:none;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 5px 16px rgba(0,0,0,.12);max-height:220px;overflow:auto}.char-tag-suggest.open{display:block}.char-tag-suggest button{display:block;width:100%;text-align:left;padding:8px 10px;border:0;background:none;cursor:pointer}.char-tag-suggest button:hover{background:#f1f4f8}.char-tag-suggest .new-char-tag{font-weight:600}.main-info{margin:3px 0 8px}.main-info-line{font-size:14px;line-height:1.45;font-weight:600;overflow-wrap:anywhere}.main-info-label{font-weight:800}.card-title{font-size:18px;line-height:1.3;font-weight:800;overflow-wrap:anywhere}.card .chips{margin-top:7px}@media(max-width:620px){.reg-tag-kinds{grid-template-columns:repeat(2,minmax(0,1fr))}.char-basic{grid-template-columns:minmax(0,1fr) auto}.char-gender{gap:10px}}
 
-.character-text{color:var(--character);font-weight:700;cursor:pointer;text-decoration:none}.character-text:hover{text-decoration:underline}.character-details{display:none;margin:4px 0 7px;padding-left:8px}.character-details.open{display:flex;flex-wrap:wrap;gap:5px}.main-character{font-size:15px;line-height:1.4;font-weight:700;border:0;background:transparent;padding:0}.main-character-role{font-size:11px;color:var(--muted);font-weight:600}.main-character-block{margin:4px 0 6px}.main-general-tags{margin-top:6px}
+.character-text{color:var(--character);font-weight:700;cursor:pointer;text-decoration:none}.character-text.gender-male{color:var(--male)}.character-text.gender-female{color:var(--female)}.character-text.gender-both{color:#7c3aed}.character-text:hover{text-decoration:underline}.character-details{display:none;margin:4px 0 7px;padding-left:8px}.character-details.open{display:flex;flex-wrap:wrap;gap:5px}.main-character{font-size:15px;line-height:1.4;font-weight:700;border:0;background:transparent;padding:0}.main-character-role{font-size:11px;color:var(--muted);font-weight:600}.main-character-block{margin:4px 0 6px}.main-general-tags{margin-top:6px}
 .char-role{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:7px 0 10px}.char-role label{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;margin:0}.char-role input{margin:0;width:auto}
 .tag-folder{border:1px solid var(--line);border-radius:12px;background:#fff;margin:7px 0;overflow:hidden}.tag-folder>summary{padding:10px 12px;font-weight:700;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px}.tag-folder>summary::-webkit-details-marker{display:none}.tag-folder>summary:before{content:"›";font-size:18px;transition:transform .15s}.tag-folder[open]>summary:before{transform:rotate(90deg)}.tag-folder-body{padding:8px 10px 11px;border-top:1px solid var(--line)}
 .char-choice-panel{display:grid;grid-template-columns:auto 1fr;gap:9px 18px;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfe}.char-choice-panel legend{font-size:12px;color:var(--muted);padding:0 5px}.char-choice-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.char-choice-row label{display:inline-flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;cursor:pointer;font-size:13px;margin:0}.char-choice-row input{margin:0;width:auto;flex:0 0 auto}.char-choice-label{font-size:13px;font-weight:700;color:var(--muted);min-width:42px}@media(max-width:620px){.char-choice-panel{grid-template-columns:1fr}.char-choice-row{gap:10px 16px}}
@@ -208,36 +208,36 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <div class="modal" id="editModal">
   <div class="dialog">
     <h2 id="modalTitle">북마크 추가</h2>
-    <div class="field"><label>제목</label><input id="title" placeholder=""></div>
+    <div class="field"><label>Title</label><input id="title" placeholder=""></div>
     <div class="field"><label>URL</label><input id="url" type="url" placeholder=""></div>
-    <div class="field" id="charField" style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfe">
-      <label style="margin-bottom:8px">등장인물</label>
-      <div id="charList"></div>
-      <button type="button" class="btn primary" id="addCharBtn" style="width:100%;margin-top:8px">＋ 등장인물 추가</button>
-    </div>
-    <div class="field"><label>하위 카테고리</label>
+    <div class="field"><label>Category</label>
       <div class="picker"><input id="catPickerInput" placeholder="" autocomplete="off"><div class="suggest cat" id="catSuggest"></div></div>
       <div class="selected" id="selectedCat"></div>
     </div>
-    <div class="field"><label>태그</label>
+    <div class="field" id="charField" style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfe">
+      <label style="margin-bottom:8px">Add Character/Cast</label>
+      <div id="charList"></div>
+      <button type="button" class="btn primary" id="addCharBtn" style="width:100%;margin-top:8px">Add Character/Cast</button>
+    </div>
+    <div class="field"><label>Artist</label><div class="picker"><input id="bookmarkArtistInput" placeholder="Artist 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkArtistSuggest"></div></div><div class="selected" id="bookmarkArtistSelected"></div></div>
+    <div class="field"><label>Series</label><div class="picker"><input id="bookmarkSeriesInput" placeholder="Series 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkSeriesSuggest"></div></div><div class="selected" id="bookmarkSeriesSelected"></div></div>
+    <div class="field"><label>Tag</label>
       <div class="picker"><input id="tagPickerInput" placeholder="일반 태그 검색" autocomplete="off"><div class="suggest tag" id="tagSuggest"></div></div>
       <div class="selected" id="selectedTags"></div>
     </div>
-    <div class="field"><label>Series</label><div class="picker"><input id="bookmarkSeriesInput" placeholder="Series 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkSeriesSuggest"></div></div><div class="selected" id="bookmarkSeriesSelected"></div></div>
-    <div class="field"><label>Artist</label><div class="picker"><input id="bookmarkArtistInput" placeholder="Artist 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkArtistSuggest"></div></div><div class="selected" id="bookmarkArtistSelected"></div></div>
-    <div class="field"><label>페이지 수 / 재생시간</label>
+    <div class="field"><label>Page/Duration</label>
       <div class="meta-type-radio">
-        <label><input type="radio" name="metaType" value="pages"> 페이지 수</label>
-        <label><input type="radio" name="metaType" value="duration"> 재생시간</label>
+        <label><input type="radio" name="metaType" value="pages"> Page</label>
+        <label><input type="radio" name="metaType" value="duration"> Duration</label>
       </div>
     </div>
-    <div class="field hidden" id="metaPagesField"><label>페이지 수</label><input id="metaPages" type="number" min="1" step="1" placeholder=""></div>
-    <div class="field hidden" id="metaDurationField"><label>재생시간</label>
+    <div class="field hidden" id="metaPagesField"><label>Page</label><input id="metaPages" type="number" min="1" step="1" placeholder=""></div>
+    <div class="field hidden" id="metaDurationField"><label>Duration</label>
       <div class="dur"><input id="durH" type="number" min="0" max="99" value="0"><span>:</span>
         <input id="durM" type="number" min="0" max="59" value="0"><span>:</span>
         <input id="durS" type="number" min="0" max="59" value="0"></div>
     </div>
-    <div class="field"><label>메모</label><textarea id="notes" placeholder=""></textarea></div>
+    <div class="field"><label>Note</label><textarea id="notes" placeholder=""></textarea></div>
     <div class="modal-actions"><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div>
   </div>
 </div>
@@ -362,6 +362,7 @@ async function initialReconcile(){
 }
 async function pullCloud({force=false}={}){
   if(!syncUser||!supabaseClient)return;
+  if(!db){setSyncStatus("클라우드 읽기 실패: 로컬 DB가 아직 준비되지 않았습니다.","err");return;}
   setSyncStatus("클라우드 확인 중…","busy");
   try{
     const cloud=await fetchCloud();
@@ -546,11 +547,11 @@ async function loadTagIndex(){tagNameToId.clear();tagIdToName.clear();const a=aw
 async function ensureTagIds(tags){const ids=[];for(const t of tags||[]){if(!t)continue;let id=tagNameToId.get(t);if(id==null){id=tagSeq++;tagNameToId.set(t,id);tagIdToName.set(id,t);await rawPut(STI,{id,name:t},{skipSync:true})}ids.push(id)}return ids}
 async function encodeBookmark(x){const tags=[...new Set(x.tags||[])],cts=[];const ti=await ensureTagIds(tags);for(const c of x.characters||[]){cts.push({n:c.name||"",r:c.role||"character",g:c.gender||"male",t:await ensureTagIds([...new Set(c.tags||[])])})}return {i:x.id,u:x.url,l:x.title,c:x.categoryId||null,t:ti,h:cts,n:x.notes||"",m:x.metaType||"",p:x.pages??null,d:x.duration??null,a:x.createdAt||Date.now(),b:x.updatedAt||Date.now()}}
 function decodeBookmark(r){if(r?.i!==undefined)return {id:r.i,url:r.u,title:r.l,categoryId:r.c||null,tags:(r.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean),characters:(r.h||[]).map(c=>({name:c.n||"",role:c.r||"character",gender:c.g||"male",tags:(c.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean)})),notes:r.n||"",metaType:r.m||"",pages:r.p??null,duration:r.d??null,createdAt:r.a,updatedAt:r.b};return r}
-const rawAll=n=>new Promise((res,rej)=>{const r=db.transaction(n).objectStore(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-const rawPut=(n,v,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
+const rawAll=n=>new Promise((res,rej)=>{if(!db)return rej(new Error("로컬 DB가 초기화되지 않았습니다."));const r=db.transaction(n).objectStore(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const rawPut=(n,v,opts={})=>new Promise((res,rej)=>{if(!db)return rej(new Error("로컬 DB가 초기화되지 않았습니다."));const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
 const all=async n=>n===SB?(await rawAll(n)).map(decodeBookmark):rawAll(n);
 const put=async(n,v,opts={})=>rawPut(n,n===SB?await encodeBookmark(v):v,opts);
-const del=(n,k,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).delete(k);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
+const del=(n,k,opts={})=>new Promise((res,rej)=>{if(!db)return rej(new Error("로컬 DB가 초기화되지 않았습니다."));const r=db.transaction(n,"readwrite").objectStore(n).delete(k);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
 
 /* 카테고리 헬퍼 */
 const getCat=id=>categories.find(c=>c.id===id)||null;
@@ -701,7 +702,7 @@ async function addCat(name,parentId=null){
 }
 function characterIdentity(c){const identity=(c.tags||[]).find(t=>isIdentityTag(t));return identity?tagLabel(identity):"";}
 function characterDisplayName(c,allChars=[]){if(String(c?.name||"").trim())return String(c.name).trim();const id=characterIdentity(c);if(id){const p=id.indexOf(":");return id.slice(p+1).trim()||id}const g={male:"남성",female:"여성",both:"양성"}[c.gender]||"등장인물";const n=allChars.filter(x=>!String(x?.name||"").trim()&&!characterIdentity(x)&&x.gender===c.gender).indexOf(c)+1;return g+" "+(n>0?n:1);}
-function renderCharacterMain(c,allChars,index){const name=characterDisplayName(c,allChars);const role=c.role||((c.tags||[]).some(t=>/^cast:/i.test(tagLabel(t)))?"cast":"character");return '<button type="button" class="character-text main-character" data-char-toggle="'+index+'">'+esc(name)+'</button> <span class="main-character-role">'+role+'</span>';}
+function renderCharacterMain(c,allChars,index){const name=characterDisplayName(c,allChars);const role=c.role||((c.tags||[]).some(t=>/^cast:/i.test(tagLabel(t)))?"cast":"character");const gender=c.gender||"male";return '<button type="button" class="character-text main-character gender-'+esc(gender)+'" data-char-toggle="'+index+'">'+esc(name)+'</button> <span class="main-character-role">'+role+'</span>';}
 function card(x){
   const allGeneral=[...(x.tags||[]),...(x.characters||[]).flatMap(c=>(c.tags||[]).filter(t=>!isIdentityTag(t)))];
   const sortedTags=[...new Set(allGeneral)].filter(t=>!isSpecialTag(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));
@@ -835,7 +836,10 @@ function renderChars(){const box=$("charList");if(!box)return;box.innerHTML=curC
 function showCharTagSug(i,q){const box=document.querySelector('[data-ctagsuggest="'+i+'"]');if(!box)return;const role=curChars[i]?.role||"character";const low=(q||"").replace(/^(?:character|cast):\s*/i,"").trim().toLowerCase();const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const profiles=profileRows().filter(r=>r.name.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(r.name))&&(!low||tagLabel(r.name).slice(tagLabel(r.name).indexOf(":")+1).trim().toLowerCase().includes(low)));const tags=registeredTags.filter(t=>t.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(t))&&!profileForTag(t)&&(!low||tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase().includes(low)));const cand=[...profiles.map(r=>r.name),...tags].filter((v,i,a)=>a.indexOf(v)===i).filter(t=>!(curChars[i].tags||[]).includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<button type="button" data-ctpick="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("");if(low&&!cand.some(t=>tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase()===low))box.innerHTML+='<button type="button" class="new-char-tag" data-ctnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-ctpick]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctpick);box.classList.remove("open")});box.querySelectorAll("[data-ctnew]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctnew,true);box.classList.remove("open")});}
 function genderTagAllowed(tag,gender){const k=tagKindOf(tag);return k==="tag"||(gender==="both"?(k==="male"||k==="female"):k===gender)}
 function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase(),gender=curChars[i]?.gender||"male";const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)&&genderTagAllowed(t,gender)).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||tagLabel(t).toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")).slice(0,15).map(tagLabel);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
-async function addDependentTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const m=raw.match(/^(male|female|tag):\s*(.*)$/i);let store;if(m){store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+m[1].toLowerCase()+":"+m[2].trim()}else{store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+"tag:"+raw}if(!curChars[i].tags)curChars[i].tags=[];if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);if(register&&!registeredTags.includes(store)){const row={name:store,kind:tagKindOf(store)+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}renderChars();renderSelTags()}
+async function addDependentTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const m=raw.match(/^(male|female|series|artist|tag):\s*(.*)$/i);let store;if(m){store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+m[1].toLowerCase()+":"+m[2].trim()}else{store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+"tag:"+raw}
+  if(/^series:/i.test(tagLabel(store))){bookmarkSeriesSelection=store;renderBookmarkSpecialSelections();return}
+  if(/^artist:/i.test(tagLabel(store))){bookmarkArtistSelection=store;renderBookmarkSpecialSelections();return}
+  if(!curChars[i].tags)curChars[i].tags=[];if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);if(register&&!registeredTags.includes(store)){const row={name:store,kind:tagKindOf(store)+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}renderChars();renderSelTags()}
 async function addIdentityTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const prof=profileForTag(raw);const role=curChars[i].role||((/^cast:/i.test(tagLabel(raw)))?"cast":"character");const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";const profileName=prof?prof.name:raw;const clean=tagLabel(profileName).replace(/^(?:character|cast):\s*/i,"");const store=scope+role+":"+clean;curChars[i].tags=(curChars[i].tags||[]).filter(t=>!isIdentityTag(t));curChars[i].tags.unshift(store);if(prof){applyProfileToCurrent(i,prof)}else if(register&&!registeredTags.includes(store)){const row={name:store,kind:role+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))};renderChars();renderSelTags()}
 
 function applyProfileToCurrent(i,prof){
@@ -845,9 +849,16 @@ function applyProfileToCurrent(i,prof){
   for(const t of (prof.profileTags||[])){
     let st=String(t||"").trim();if(!st)continue;
     if(scope&&!st.startsWith("["))st=scope+st;
+    // Series는 북마크의 Series 칸으로만 연결한다.
+    if(/^series:/i.test(tagLabel(st))){
+      bookmarkSeriesSelection=st;
+      continue;
+    }
+    // 프로필의 사전등록 태그는 등장인물 자체의 태그로만 유지한다.
+    // 북마크의 일반 Tag 칸(curTags)에는 자동 추가하지 않는다.
     if(!curChars[i].tags.includes(st))curChars[i].tags.push(st);
-    if(!isIdentityTag(st)&&!curTags.includes(st))curTags.push(st);
   }
+  renderBookmarkSpecialSelections();
 }
 function addOneChar(){curChars.push({role:"character",gender:"male",tags:[]});renderChars()}
 $("addCharBtn").onclick=addOneChar;
