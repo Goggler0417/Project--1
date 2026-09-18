@@ -521,7 +521,7 @@ function setDur(str){const m=String(str||"00:00:00").match(/^(\d{1,2}):(\d{1,2})
 /* IndexedDB */
 function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,5);r.onupgradeneeded=e=>{const d=e.target.result,tx=e.target.transaction;
   if(d.objectStoreNames.contains(SB)){
-    const old=d.transaction.objectStore(SB);
+    const old=tx.objectStore(SB);
     const kp=old.keyPath;
     if(kp!=="i"){
       const get=old.getAll();
