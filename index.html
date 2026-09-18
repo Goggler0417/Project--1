@@ -1023,8 +1023,13 @@ function renderSearchSuggest(){
 $("search").oninput=()=>{renderSearchSuggest();render()};$("search").onfocus=renderSearchSuggest;$("searchScope").onchange=render;$("sort").onchange=render;
 $("subCatFilter").onchange=render;
 setSyncStatus("Supabase 초기화 중…","busy");
+// Supabase 인증과 로컬 IndexedDB는 서로 독립적으로 초기화한다.
 initSupabaseSync();
-openDB().then(async()=>{await refresh()}).catch(e=>{console.error(e);setSyncStatus("로컬 DB 초기화 실패: "+(e.message||e),"err")});
+openDB().then(async()=>{await refresh()}).catch(e=>{
+  console.error("Local IndexedDB init failed",e);
+  window.localDBReady=false;
+  setSyncStatus("로컬 DB를 사용할 수 없습니다. Supabase 로그인은 계속 사용할 수 있습니다.","err");
+});
 </script>
 </body>
 </html>
