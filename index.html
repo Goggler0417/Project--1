@@ -395,11 +395,15 @@ async function initSupabaseSync(){
     const {data:{session}}=await supabaseClient.auth.getSession();
     syncUser=session?.user||null;setSyncButtons();
     if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
-    supabaseClient.auth.onAuthStateChange(async (_event,session2)=>{
+    supabaseClient.auth.onAuthStateChange((_event,session2)=>{
       const nextUser=session2?.user||null;if(nextUser?.id===syncHandledUserId&&_event==="INITIAL_SESSION")return;
       syncUser=nextUser;setSyncButtons();
-      if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
-      else{if(syncChannel)await supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;setSyncStatus("로그아웃됨","");}
+      if(syncUser){
+        syncHandledUserId=syncUser.id;
+        setTimeout(async()=>{try{await startRealtime();await initialReconcile()}catch(e){console.error(e);setSyncStatus("Supabase 동기화 실패: "+(e.message||e),"err")}},0);
+      }else{
+        if(syncChannel) supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;syncInitialized=false;setSyncStatus("로그아웃됨","");
+      }
     });
   }catch(e){console.error(e);setSyncStatus("Supabase 초기화 실패: "+(e.message||e),"err")}
 }
