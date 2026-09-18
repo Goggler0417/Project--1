@@ -107,8 +107,8 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   <span class="sync-status" id="syncStatus">Supabase 동기화: 설정 필요</span>
   <span class="sync-user" id="syncUser"></span>
   <button class="btn sm" id="syncLoginBtn">로그인</button>
-  <button class="btn sm hidden" id="syncPushBtn">클라우드에 업로드</button>
-  <button class="btn sm hidden" id="syncPullBtn">클라우드로부터 다운로드</button>
+  <button class="btn sm hidden" id="syncPushBtn">현재 데이터를 클라우드에 올리기</button>
+  <button class="btn sm hidden" id="syncPullBtn">클라우드 데이터 가져오기</button>
   <button class="btn sm hidden" id="syncLogoutBtn">로그아웃</button>
 </div>
 
@@ -196,7 +196,6 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
       <label><input type="radio" name="profileKind" value="cast:"> cast:</label>
     </fieldset>
     <div class="field"><label>이름</label><input id="profileName" placeholder="이름"></div>
-    <fieldset class="profile-kind"><legend>성별</legend><label><input type="radio" name="profileGender" value="male" checked> 남성</label><label><input type="radio" name="profileGender" value="female"> 여성</label><label><input type="radio" name="profileGender" value="both"> 양성</label></fieldset>
     <div class="field"><label>Series</label><div class="picker"><input id="profileSeriesInput" placeholder="사전등록 Series 검색" autocomplete="off"><div class="suggest tag" id="profileSeriesSuggest"></div></div><div class="selected" id="profileSeriesSelected"></div></div>
     <div class="field"><label>사전등록 태그</label><div class="picker"><input id="profileTagsInput" placeholder="사전등록 태그 검색" autocomplete="off"><div class="suggest tag" id="profileTagsSuggest"></div></div><div class="selected" id="profileTagsSelected"></div></div>
     <div class="modal-actions"><button class="btn" id="profileCancelBtn">취소</button><button class="btn primary" id="addProfile">프로필 등록</button></div>
@@ -207,8 +206,8 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <div class="modal" id="editModal">
   <div class="dialog">
     <h2 id="modalTitle">북마크 추가</h2>
-    <div class="field"><label>제목</label><input id="title" placeholder=""></div>
     <div class="field"><label>URL</label><input id="url" type="url" placeholder=""></div>
+    <div class="field"><label>제목</label><input id="title" placeholder=""></div>
     <div class="field" id="charField" style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfe">
       <label style="margin-bottom:8px">등장인물</label>
       <div id="charList"></div>
@@ -219,11 +218,9 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
       <div class="selected" id="selectedCat"></div>
     </div>
     <div class="field"><label>태그</label>
-      <div class="picker"><input id="tagPickerInput" placeholder="일반 태그 검색" autocomplete="off"><div class="suggest tag" id="tagSuggest"></div></div>
+      <div class="picker"><input id="tagPickerInput" placeholder="" autocomplete="off"><div class="suggest tag" id="tagSuggest"></div></div>
       <div class="selected" id="selectedTags"></div>
     </div>
-    <div class="field"><label>Series</label><div class="picker"><input id="bookmarkSeriesInput" placeholder="Series 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkSeriesSuggest"></div></div><div class="selected" id="bookmarkSeriesSelected"></div></div>
-    <div class="field"><label>Artist</label><div class="picker"><input id="bookmarkArtistInput" placeholder="Artist 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkArtistSuggest"></div></div><div class="selected" id="bookmarkArtistSelected"></div></div>
     <div class="field"><label>페이지 수 / 재생시간</label>
       <div class="meta-type-radio">
         <label><input type="radio" name="metaType" value="pages"> 페이지 수</label>
@@ -253,7 +250,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 </div>
 
 <script>
-const DB="tagmark-local-v1", SB="bookmarks", ST="registeredTags", SC="categories", STI="tagIndex";
+const DB="tagmark-local-v1", SB="bookmarks", ST="registeredTags", SC="categories";
 let db, items=[], registeredTags=[], registeredTagMeta=[], categories=[];
 let tagStates={}, activeTopId=null, includeDesc=true, expanded=new Set();
 let editingId=null, curTags=[], curCatId=null, curChars=[];
@@ -264,15 +261,14 @@ const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()
 
 /* Supabase single-file cloud sync
    One authenticated user -> one fixed cloud record: tagmark_main.
-   Local IndexedDB is the working copy. Sync uses explicit overwrite direction
-   when choosing which side should be the source; afterwards local edits upload
-   and realtime cloud edits download. Deletions are intentionally synchronized.
-*/
+   IndexedDB remains local-first; Supabase is the cross-device sync layer.
+   v2.4: initial local/cloud reconciliation, dirty tracking, realtime INSERT/UPDATE,
+   safer status handling, and no automatic overwrite of newer local edits. */
 const SUPABASE_URL = "https://ogfcrdayneneylxurudv.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lbermbhd3O8mjN6SaioreA_nLVsVrkm";
 const CLOUD_FILE_ID = "tagmark_main";
-const SYNC_SCHEMA_VERSION = 8;
-let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false, syncInitialized=false;
+const SYNC_SCHEMA_VERSION = 6;
+let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false;
 let syncUser=null, syncHandledUserId=null;
 const syncConfigured=()=>SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
 function setSyncStatus(text,state=""){const s=$("syncStatus"),d=$("syncDot");if(s)s.textContent=text;if(d)d.className="sync-dot "+(state||"")}
@@ -283,9 +279,19 @@ function setSyncButtons(){
   $("syncPullBtn")?.classList.toggle("hidden",!syncUser);
   if($("syncUser"))$("syncUser").textContent=syncUser?.email||"";
 }
-function markLocalDirty(){if(applyingRemote)return;localStorage.setItem("tagmark-local-dirty-at",String(Date.now()));}
+function markLocalDirty(){
+  if(applyingRemote)return;
+  localStorage.setItem("tagmark-local-dirty-at",String(Date.now()));
+}
 async function cloudSnapshot(){
-  return {schemaVersion:SYNC_SCHEMA_VERSION,exportedAt:new Date().toISOString(),bookmarks:await all(SB),registeredTags:await all(ST),categories:await all(SC),visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")};
+  return {
+    schemaVersion:SYNC_SCHEMA_VERSION,
+    exportedAt:new Date().toISOString(),
+    bookmarks:await all(SB),
+    registeredTags:await all(ST),
+    categories:await all(SC),
+    visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")
+  };
 }
 async function replaceLocalFromCloud(data){
   if(!data||typeof data!=="object")throw new Error("클라우드 데이터 형식이 올바르지 않습니다.");
@@ -296,65 +302,62 @@ async function replaceLocalFromCloud(data){
     for(const r of oldT)await del(ST,r.name,{skipSync:true});
     for(const r of oldC)await del(SC,r.id,{skipSync:true});
     for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
-    for(const r0 of (data.registeredTags||[])){
-  const tagRecord=typeof r0==="string"?{name:r0}:r0;
-  if(tagRecord?.name)await put(ST,tagRecord,{skipSync:true});
-}
+    for(const r0 of (data.registeredTags||[])){const r=typeof r0==="string"?{name:r0}:r;if(r?.name)await put(ST,r,{skipSync:true});}
     for(const r of (data.categories||[]))if(r?.id)await put(SC,r,{skipSync:true});
     if(Array.isArray(data.visibleKinds))localStorage.setItem("tagmark-visible-kinds",JSON.stringify(data.visibleKinds));
-    else localStorage.removeItem("tagmark-visible-kinds");
     await refresh();
     localStorage.removeItem("tagmark-local-dirty-at");
   }finally{applyingRemote=false}
 }
 async function fetchCloud(){
   const {data,error}=await supabaseClient.from("tagmark_files").select("data,updated_at").eq("user_id",syncUser.id).eq("file_id",CLOUD_FILE_ID).maybeSingle();
-  if(error)throw error;return data||null;
-}
-async function writeCloud(payload,reason="auto"){
-  const {data,error}=await supabaseClient.from("tagmark_files").upsert({file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:payload,updated_at:new Date().toISOString()},{onConflict:"user_id,file_id"}).select("updated_at").single();
   if(error)throw error;
-  const at=Date.parse(data?.updated_at||"")||Date.now();
-  localStorage.setItem("tagmark-last-cloud-sync",String(at));
-  localStorage.removeItem("tagmark-local-dirty-at");
-  setSyncStatus(reason==="manual"?"클라우드에 저장됨":"자동 동기화됨","ok");
+  return data||null;
 }
 async function pushCloud(reason="auto"){
   if(!syncUser||!supabaseClient||syncBusy)return false;
-  syncBusy=true;setSyncStatus(reason==="manual"?"현재 기기 → 클라우드 저장 중…":"변경사항 클라우드 저장 중…","busy");
-  try{await writeCloud(await cloudSnapshot(),reason);return true}
-  catch(e){console.error(e);setSyncStatus("동기화 실패: "+(e.message||e),"err");return false}
+  syncBusy=true;setSyncStatus(reason==="manual"?"클라우드에 저장 중…":"변경사항 저장 중…","busy");
+  try{
+    const payload=await cloudSnapshot();
+    const {data,error}=await supabaseClient.from("tagmark_files").upsert({
+      file_id:CLOUD_FILE_ID,user_id:syncUser.id,data:payload,updated_at:new Date().toISOString()
+    },{onConflict:"user_id,file_id"}).select("updated_at").single();
+    if(error)throw error;
+    localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(data?.updated_at||"")||Date.now()));
+    localStorage.removeItem("tagmark-local-dirty-at");
+    setSyncStatus("동기화됨 · 실시간 연결 대기","ok");
+    return true;
+  }catch(e){console.error(e);setSyncStatus("동기화 실패: "+(e.message||e),"err");return false}
   finally{syncBusy=false}
 }
 function scheduleCloudPush(){
-  if(!syncInitialized||applyingRemote||!syncUser||!supabaseClient)return;
-  markLocalDirty();
-  clearTimeout(syncTimer);
-  syncTimer=setTimeout(()=>pushCloud("auto"),700);
+  if(applyingRemote||!syncUser||!supabaseClient)return;
+  markLocalDirty();clearTimeout(syncTimer);syncTimer=setTimeout(()=>pushCloud("auto"),700);
 }
 async function initialReconcile(){
   if(!syncUser||!supabaseClient)return;
-
-  setSyncStatus("클라우드와 연결 중…","busy");
-
+  setSyncStatus("클라우드와 로컬 데이터 확인 중…","busy");
   try{
     const cloud=await fetchCloud();
-
-    // 최초 접속에서는 업로드/다운로드하지 않고
-    // 현재 기기의 로컬 데이터를 그대로 유지한다.
+    const dirtyAt=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
     if(!cloud){
-      setSyncStatus("클라우드 데이터 없음 · 로컬 유지","ok");
-    }else{
-      setSyncStatus("클라우드 연결됨 · 로컬 유지","ok");
+      const local=await cloudSnapshot();
+      const hasLocal=local.bookmarks.length||local.registeredTags.length||local.categories.length;
+      if(hasLocal){
+        if(confirm("이 계정의 클라우드 파일이 없습니다.\n현재 기기의 Tagmark 데이터를 새 클라우드 파일로 올릴까요?"))await pushCloud("manual");
+        else setSyncStatus("클라우드 파일 없음 · 로컬 유지","ok");
+      }else setSyncStatus("새 클라우드 파일 · 동기화 준비됨","ok");
+      return;
     }
-
-    syncInitialized=true;
-
-  }catch(e){
-    console.error(e);
-    setSyncStatus("클라우드 확인 실패 · 로컬 유지","err");
-    syncInitialized=true;
-  }
+    const cloudAt=Date.parse(cloud.updated_at||"")||0;
+    if(dirtyAt && dirtyAt>cloudAt){
+      const choice=confirm("이 기기에서 클라우드보다 최근에 변경한 로컬 데이터가 있습니다.\n\n확인: 로컬 데이터를 클라우드에 저장\n취소: 클라우드 데이터를 현재 기기에 적용");
+      if(choice)await pushCloud("manual");
+      else{await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터 적용됨","ok");}
+    }else{
+      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(cloudAt||Date.now()));setSyncStatus("클라우드 데이터 적용됨 · 실시간 연결됨","ok");
+    }
+  }catch(e){console.error(e);setSyncStatus("초기 동기화 실패: "+(e.message||e),"err")}
 }
 async function pullCloud({force=false}={}){
   if(!syncUser||!supabaseClient)return;
@@ -363,10 +366,10 @@ async function pullCloud({force=false}={}){
     const cloud=await fetchCloud();
     if(!cloud){setSyncStatus("클라우드 파일이 없습니다.","");return;}
     if(force){
-      if(!confirm("클라우드 데이터를 현재 기기에 적용할까요?\n\n현재 기기의 로컬 데이터는 클라우드 데이터로 완전히 교체됩니다.\n삭제된 태그/북마크도 그대로 반영됩니다."))return;
-      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(cloud.updated_at||"")||Date.now()));setSyncStatus("클라우드 → 현재 기기 적용 완료","ok");
+      if(!confirm("클라우드의 Tagmark 데이터를 현재 기기에 적용할까요?\n현재 기기의 로컬 데이터는 클라우드 데이터로 교체됩니다."))return;
+      await replaceLocalFromCloud(cloud.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(cloud.updated_at||"")||Date.now()));setSyncStatus("클라우드에서 가져옴","ok");
     }else await initialReconcile();
-  }catch(e){console.error(e);setSyncStatus("클라우드 읽기 실패: "+e.message,"err")}
+  }catch(e){setSyncStatus("클라우드 읽기 실패: "+e.message,"err")}
 }
 async function startRealtime(){
   if(syncChannel)await supabaseClient.removeChannel(syncChannel);
@@ -374,15 +377,17 @@ async function startRealtime(){
     .on("postgres_changes",{event:"UPDATE",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{
       if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;
       const remoteAt=Date.parse(payload.new.updated_at||"")||0;
+      const localDirty=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
       const lastCloud=Number(localStorage.getItem("tagmark-last-cloud-sync")||0);
+      if(localDirty>remoteAt){setSyncStatus("다른 기기 변경 감지 · 이 기기의 최근 변경을 보호함","busy");return;}
       if(remoteAt && remoteAt<=lastCloud)return;
-      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(remoteAt||Date.now()));setSyncStatus("다른 기기 변경사항 적용됨","ok");}
-      catch(e){console.error(e);setSyncStatus("원격 변경 적용 실패","err")}
+      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(remoteAt||Date.now()));setSyncStatus("다른 기기 변경사항 적용됨","ok");}catch(e){console.error(e);setSyncStatus("원격 변경 적용 실패","err")}
     })
     .on("postgres_changes",{event:"INSERT",schema:"public",table:"tagmark_files",filter:`user_id=eq.${syncUser.id}`},async payload=>{
       if(payload.new?.file_id!==CLOUD_FILE_ID||applyingRemote)return;
-      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(payload.new.updated_at||"")||Date.now()));setSyncStatus("클라우드 파일 적용됨","ok");}
-      catch(e){console.error(e);setSyncStatus("클라우드 파일 적용 실패","err")}
+      const localDirty=Number(localStorage.getItem("tagmark-local-dirty-at")||0);
+      if(localDirty){setSyncStatus("클라우드 파일 생성됨 · 로컬 변경 확인 필요","busy");return;}
+      try{await replaceLocalFromCloud(payload.new.data);localStorage.setItem("tagmark-last-cloud-sync",String(Date.parse(payload.new.updated_at||"")||Date.now()));setSyncStatus("클라우드 파일 가져옴","ok");}catch(e){console.error(e);setSyncStatus("클라우드 파일 적용 실패","err")}
     })
     .subscribe(status=>{if(status==="SUBSCRIBED"){syncReady=true;setSyncStatus("실시간 동기화 연결됨","ok")}else if(status==="CHANNEL_ERROR")setSyncStatus("실시간 연결 오류 · 재연결 중…","err")});
 }
@@ -395,15 +400,12 @@ async function initSupabaseSync(){
     const {data:{session}}=await supabaseClient.auth.getSession();
     syncUser=session?.user||null;setSyncButtons();
     if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
-    supabaseClient.auth.onAuthStateChange((_event,session2)=>{
-      const nextUser=session2?.user||null;if(nextUser?.id===syncHandledUserId&&_event==="INITIAL_SESSION")return;
+    supabaseClient.auth.onAuthStateChange(async (_event,session2)=>{
+      const nextUser=session2?.user||null;
+      if(nextUser?.id===syncHandledUserId && _event==="INITIAL_SESSION")return;
       syncUser=nextUser;setSyncButtons();
-      if(syncUser){
-        syncHandledUserId=syncUser.id;
-        setTimeout(async()=>{try{await startRealtime();await initialReconcile()}catch(e){console.error(e);setSyncStatus("Supabase 동기화 실패: "+(e.message||e),"err")}},0);
-      }else{
-        if(syncChannel) supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;syncInitialized=false;setSyncStatus("로그아웃됨","");
-      }
+      if(syncUser){syncHandledUserId=syncUser.id;await startRealtime();await initialReconcile();}
+      else{if(syncChannel)await supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;setSyncStatus("로그아웃됨","");}
     });
   }catch(e){console.error(e);setSyncStatus("Supabase 초기화 실패: "+(e.message||e),"err")}
 }
@@ -421,7 +423,7 @@ $("syncLoginBtn").onclick=async()=>{
   }
 };
 $("syncLogoutBtn").onclick=async()=>{await supabaseClient?.auth.signOut()};
-$("syncPushBtn").onclick=async()=>{if(confirm("현재 기기의 Tagmark 전체 데이터를 클라우드에 덮어쓸까요?\n\n클라우드에만 있던 태그/북마크는 삭제되며, 다른 기기도 이 상태로 갱신됩니다."))await pushCloud("manual")};
+$("syncPushBtn").onclick=async()=>{if(confirm("현재 기기의 데이터를 고정 클라우드 파일에 저장할까요? 다른 기기의 데이터도 이 버전으로 갱신됩니다."))await pushCloud("manual")};
 $("syncPullBtn").onclick=async()=>pullCloud({force:true});
 
 /** URL 정규화 */
@@ -467,21 +469,17 @@ function setDur(str){const m=String(str||"00:00:00").match(/^(\d{1,2}):(\d{1,2})
   $("durH").value=m?+m[1]:0;$("durM").value=m?+m[2]:0;$("durS").value=m?+m[3]:0}
 
 /* IndexedDB */
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,4);r.onupgradeneeded=e=>{const d=e.target.result;
-  if(!d.objectStoreNames.contains(SB))d.createObjectStore(SB,{keyPath:"i"});
-  if(!d.objectStoreNames.contains(ST))d.createObjectStore(ST,{keyPath:"name"});
-  if(!d.objectStoreNames.contains(SC))d.createObjectStore(SC,{keyPath:"id"});
-  if(!d.objectStoreNames.contains(STI))d.createObjectStore(STI,{keyPath:"id"});
-};r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error)})}
-let tagNameToId=new Map,tagIdToName=new Map,tagSeq=1;
-async function loadTagIndex(){tagNameToId.clear();tagIdToName.clear();const a=await rawAll(STI);for(const r of a){if(r?.id!=null&&r.name){tagNameToId.set(r.name,r.id);tagIdToName.set(r.id,r.name);tagSeq=Math.max(tagSeq,Number(r.id)+1)}}}
-async function ensureTagIds(tags){const ids=[];for(const t of tags||[]){if(!t)continue;let id=tagNameToId.get(t);if(id==null){id=tagSeq++;tagNameToId.set(t,id);tagIdToName.set(id,t);await rawPut(STI,{id,name:t},{skipSync:true})}ids.push(id)}return ids}
-async function encodeBookmark(x){const tags=[...new Set(x.tags||[])],cts=[];const ti=await ensureTagIds(tags);for(const c of x.characters||[]){cts.push({n:c.name||"",r:c.role||"character",g:c.gender||"male",t:await ensureTagIds([...new Set(c.tags||[])])})}return {i:x.id,u:x.url,l:x.title,c:x.categoryId||null,t:ti,h:cts,n:x.notes||"",m:x.metaType||"",p:x.pages??null,d:x.duration??null,a:x.createdAt||Date.now(),b:x.updatedAt||Date.now()}}
-function decodeBookmark(r){if(r?.i!==undefined)return {id:r.i,url:r.u,title:r.l,categoryId:r.c||null,tags:(r.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean),characters:(r.h||[]).map(c=>({name:c.n||"",role:c.r||"character",gender:c.g||"male",tags:(c.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean)})),notes:r.n||"",metaType:r.m||"",pages:r.p??null,duration:r.d??null,createdAt:r.a,updatedAt:r.b};return r}
-const rawAll=n=>new Promise((res,rej)=>{const r=db.transaction(n).objectStore(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
-const rawPut=(n,v,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
-const all=async n=>n===SB?(await rawAll(n)).map(decodeBookmark):rawAll(n);
-const put=async(n,v,opts={})=>rawPut(n,n===SB?await encodeBookmark(v):v,opts);
+function openDB(){return new Promise((res,rej)=>{
+  const r=indexedDB.open(DB,3);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains(SB))d.createObjectStore(SB,{keyPath:"id"});
+    if(!d.objectStoreNames.contains(ST))d.createObjectStore(ST,{keyPath:"name"});
+    if(!d.objectStoreNames.contains(SC))d.createObjectStore(SC,{keyPath:"id"});
+  };
+  r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error);
+})}
+const all=n=>new Promise((res,rej)=>{const r=db.transaction(n).objectStore(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
+const put=(n,v,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
 const del=(n,k,opts={})=>new Promise((res,rej)=>{const r=db.transaction(n,"readwrite").objectStore(n).delete(k);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
 
 /* 카테고리 헬퍼 */
@@ -508,8 +506,7 @@ const resolvePath=(s,under)=>!s?.trim()?under||null:ensurePath(s.split(/[/＞>]/
 
 /* 로드 */
 async function refresh(){
-  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;categories=await all(SC);
-  const legacy=raw.filter(r=>r?.id&&!r.i);for(const x of items)if(legacy.some(r=>r.id===x.id))await put(SB,x,{skipSync:true});
+  items=await all(SB);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;categories=await all(SC);
   for(const row of registeredTagMeta){if(row?.profile&&!row.topCategoryId){const rid=profileTopCategoryId(row);if(rid){row.topCategoryId=rid;row.topCategoryPath=catPath(rid);await put(ST,row)}}}
   for(const x of items){if(x.category&&!x.categoryId){const id=await resolvePath(x.category,null);if(id){x.categoryId=id;delete x.category;await put(SB,x)}}}
   const used=new Set();items.forEach(x=>{(x.tags||[]).forEach(t=>used.add(t));(x.characters||[]).forEach(ch=>(ch.tags||[]).forEach(t=>used.add(t)))});
@@ -658,11 +655,34 @@ function bindCards(){
 }
 
 /* 태그 (현재 최상위 범위) */
-function tagsInScope(){const ids=scopeIds(),set=new Set();for(const x of items){if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;(x.tags||[]).forEach(t=>set.add(t));(x.characters||[]).forEach(c=>(c.tags||[]).forEach(t=>set.add(t)))}const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";for(const t of registeredTags){if(!prefix||t.startsWith(prefix))set.add(t)}return [...set].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"))}
-function renderTagGrid(){const q=($("tagFilterSearch")?.value||"").trim().toLowerCase(),counts={},ids=scopeIds();for(const x of items){if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;const used=new Set(x.tags||[]);(x.characters||[]).forEach(c=>(c.tags||[]).forEach(t=>used.add(t)));used.forEach(t=>counts[t]=(counts[t]||0)+1)}const all=tagsInScope(),vis=q?all.filter(t=>tagLabel(t).toLowerCase().includes(q)):all;const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};vis.forEach(t=>groups[tagKindOf(t)].push(t));const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];$('tagGrid').innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-filter-folder"><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-filter-folder-body">'+arr.map(t=>'<button class="tb '+(tagStates[t]||"")+' '+tagColor(t)+'" data-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+(counts[t]||0)+'</span></button>').join("")+'</div></details>'}).join("")||'<div class="empty" style="padding:16px">태그 없음</div>';$('tagGrid').querySelectorAll('.tb').forEach(b=>b.onclick=()=>cycleTag(b.dataset.tag))}
+function tagsInScope(){
+  const ids=scopeIds(), set=new Set();
+  for(const x of items){
+    if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;
+    (x.tags||[]).filter(t=>!isSpecialTag(t)).forEach(t=>set.add(t));(x.characters||[]).forEach(c=>(c.tags||[]).filter(t=>!isIdentityTag(t)).forEach(t=>set.add(t)));
+  }
+  // 사전등록 태그도 현재 카테고리의 태그만 노출
+  const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";
+  for(const t of registeredTags){if(!prefix||t.startsWith(prefix))set.add(t)}
+  return [...set].sort((a,b)=>a.localeCompare(b,"ko"));
+}
+function renderTagGrid(){
+  const q=($('tagFilterSearch')?.value||'').trim().toLowerCase(),counts={};const ids=scopeIds();
+  for(const x of items){if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;
+    (x.tags||[]).filter(t=>!isSpecialTag(t)).forEach(t=>counts[t]=(counts[t]||0)+1);
+    (x.characters||[]).forEach(c=>(c.tags||[]).filter(t=>!isIdentityTag(t)).forEach(t=>counts[t]=(counts[t]||0)+1));
+  }
+  const all=tagsInScope(),vis=q?all.filter(t=>t.toLowerCase().includes(q)):all;
+  const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};
+  vis.forEach(t=>groups[tagKindOf(t)].push(t));
+  const labels={male:'Male',female:'Female',artist:'Artist',series:'Series',language:'Language',character:'Character',cast:'Cast',tag:'Tag',production:'Production'};
+  const order=['artist','series','language','character','cast','production','male','female','tag'];
+  $('tagGrid').innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),'ko'));if(!arr.length)return'';return '<details class="tag-filter-folder'+'"><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-filter-folder-body">'+arr.map(t=>'<button class="tb '+(tagStates[t]||'')+' '+tagColor(t)+'" data-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+(counts[t]||0)+'</span></button>').join('')+'</div></details>'}).join('')||'<div class="empty" style="padding:16px">태그 없음</div>';
+  $('tagGrid').querySelectorAll('.tb').forEach(b=>b.onclick=()=>cycleTag(b.dataset.tag));
+}
 function cycleTag(tag){const c=tagStates[tag]||null;if(!c)tagStates[tag]="include";else if(c==="include")tagStates[tag]="exclude";else delete tagStates[tag];render()}
-function tagKindOf(t){const m=tagLabel(t).toLowerCase().match(/^(male|female|artist|series|language|character|cast|tag|production):/);return m?m[1]:"tag"}
-function getTagUsageCount(tag){let count=0;for(const x of items)if((x.tags||[]).includes(tag)||(x.characters||[]).some(c=>(c.tags||[]).includes(tag)))count++;return count}
+function tagKindOf(t){const m=tagLabel(t).toLowerCase().match(/^(male|female|artist|series|language|character|cast|tag|production):/);return m?m[1]:"tag";}
+function getTagUsageCount(tag){let count=0;for(const x of items){if((x.tags||[]).includes(tag))count++;for(const c of x.characters||[])if((c.tags||[]).includes(tag))count++;}return count;}
 function renderRegList(){const box=$("registeredTagList");if(!box)return;const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const list=registeredTags.filter(t=>(prefix?t.startsWith(prefix):!/^\[/.test(t)));const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};for(const t of list)groups[tagKindOf(t)].push(t);const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];box.innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-folder"><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-folder-body">'+arr.map(t=>'<div class="reg-row">'+tagMarkup(t)+'<span class="meta" style="margin-left:auto">'+getTagUsageCount(t)+'</span><button class="btn sm" data-ren="'+esc(t)+'">수정</button><button class="btn sm danger" data-rd="'+esc(t)+'">삭제</button></div>').join("")+'</div></details>';}).join("")||'<div class="empty" style="padding:8px">등록 없음</div>';box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=async()=>{const old=b.dataset.ren,neu=prompt("새 이름:",tagLabel(old));if(!neu?.trim())return;const raw=neu.trim(),kind=tagKindOf(old),name=prefix+kind+":"+raw;if(name===old)return;const oldMeta=registeredTagMeta.find(r=>r.name===old);await del(ST,old);const nm=oldMeta?{...oldMeta,name}:{name,kind:kind+":"};await put(ST,nm);registeredTagMeta=registeredTagMeta.map(r=>r.name===old?nm:r);registeredTags=registeredTags.map(t=>t===old?name:t);for(const x of items){if((x.tags||[]).includes(old)){x.tags=x.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}for(const ch of x.characters||[])if((ch.tags||[]).includes(old)){ch.tags=ch.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}}if(tagStates[old]){tagStates[name]=tagStates[old];delete tagStates[old]}await refresh();});box.querySelectorAll("[data-rd]").forEach(b=>b.onclick=async()=>{const name=b.dataset.rd;if(!confirm("등록 삭제? (북마크 태그는 유지)"))return;await del(ST,name);registeredTags=registeredTags.filter(t=>t!==name);registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);delete tagStates[name];render()});}
 function pageTagButton(t){return '<button class="tb '+(tagStates[t]||"")+' '+tagColor(t)+'" data-page-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+getTagUsageCount(t)+'</span></button>';}
 function profileTopCategoryId(row){
@@ -698,8 +718,7 @@ function renderProfilePage(){
     return '<details class="profile-folder"><summary><span>'+esc(series)+'</span><span class="meta">'+rows.length+'개</span></summary><div class="profile-folder-body">'+rows.map(({tag,meta})=>{
       const kind=/^cast:/i.test(tagLabel(tag))?"Cast":"Character";
       const prereg=(meta?.prereg||[]).map(t=>tagMarkup(t)).join("");
-      const gender={male:"남성",female:"여성",both:"양성"}[meta?.gender||"male"]||"남성";
-      return '<article class="profile-card"><div class="profile-card-title">'+esc(profileDisplayName(tag))+'</div><div class="profile-card-line"><span class="profile-label">태그 카테고리</span><span class="chip character">'+kind+'</span></div><div class="profile-card-line"><span class="profile-label">성별</span><span class="profile-value">'+gender+'</span></div><div class="profile-card-line"><span class="profile-label">시리즈</span><span class="profile-value">'+esc(series)+'</span></div><div class="profile-card-line"><span class="profile-label">사전등록 태그</span><div class="chips profile-tags">'+(prereg||'<span class="meta">없음</span>')+'</div></div><div class="profile-card-actions"><button type="button" class="btn sm primary" data-profile-edit="'+esc(tag)+'">수정</button><button type="button" class="btn sm danger" data-profile-delete="'+esc(tag)+'">삭제</button></div></article>';
+      return '<article class="profile-card"><div class="profile-card-title">'+esc(profileDisplayName(tag))+'</div><div class="profile-card-line"><span class="profile-label">태그 카테고리</span><span class="chip character">'+kind+'</span></div><div class="profile-card-line"><span class="profile-label">시리즈</span><span class="profile-value">'+esc(series)+'</span></div><div class="profile-card-line"><span class="profile-label">사전등록 태그</span><div class="chips profile-tags">'+(prereg||'<span class="meta">없음</span>')+'</div></div><div class="profile-card-actions"><button type="button" class="btn sm primary" data-profile-edit="'+esc(tag)+'">수정</button><button type="button" class="btn sm danger" data-profile-delete="'+esc(tag)+'">삭제</button></div></article>';
     }).join("")+'</div></details>';
   }).join(""):'<div class="empty" style="padding:16px">등록된 Character / Cast 프로필이 없습니다.</div>';
   box.querySelectorAll("[data-profile-edit]").forEach(b=>b.onclick=()=>startProfileEdit(b.dataset.profileEdit));
@@ -729,17 +748,17 @@ $("addRegisteredTag").onclick=async()=>{const raw=$("newTagName").value.trim(),k
 let profileSeriesSelection="", profileTagSelections=[], editingProfileTag=null;
 function renderProfileSelections(){const sb=$("profileSeriesSelected"),tb=$("profileTagsSelected");sb.innerHTML=profileSeriesSelection?tagMarkup(profileSeriesSelection,true):"";tb.innerHTML=profileTagSelections.map(t=>tagMarkup(t,true)).join("");sb.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{profileSeriesSelection="";renderProfileSelections()});tb.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{profileTagSelections=profileTagSelections.filter(t=>t!==b.dataset.trm);renderProfileSelections()})}
 function showProfileSeriesSug(q){const box=$("profileSeriesSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&/^series:/i.test(tagLabel(t))&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection).slice(0,15);box.innerHTML=cand.map(t=>'<div data-ps="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{profileSeriesSelection=b.dataset.ps;$("profileSeriesInput").value="";box.classList.remove("open");renderProfileSelections()})}
-function showProfileTagSug(q){const box=$("profileTagsSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const gender=document.querySelector('input[name="profileGender"]:checked')?.value||"male";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&!isIdentityTag(t)&&!isInfoTag(t)&&genderTagAllowed(t,gender)&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection&&!profileTagSelections.includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<div data-pt="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{profileTagSelections.push(b.dataset.pt);$("profileTagsInput").value="";box.classList.remove("open");renderProfileSelections()})}
+function showProfileTagSug(q){const box=$("profileTagsSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&!isIdentityTag(t)&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection&&!profileTagSelections.includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<div data-pt="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{profileTagSelections.push(b.dataset.pt);$("profileTagsInput").value="";box.classList.remove("open");renderProfileSelections()})}
 $("profileSeriesInput").oninput=e=>showProfileSeriesSug(e.target.value);$("profileSeriesInput").onfocus=e=>{if(e.target.value.trim())showProfileSeriesSug(e.target.value)};
-$("profileTagsInput").oninput=e=>showProfileTagSug(e.target.value);$("profileTagsInput").onfocus=e=>{if(e.target.value.trim())showProfileTagSug(e.target.value)};document.querySelectorAll('input[name="profileGender"]').forEach(r=>r.onchange=()=>{const g=document.querySelector('input[name="profileGender"]:checked')?.value||"male";profileTagSelections=profileTagSelections.filter(t=>genderTagAllowed(t,g));renderProfileSelections();if($("profileTagsInput")?.value.trim())showProfileTagSug($("profileTagsInput").value)});
-function resetProfileForm(){editingProfileTag=null;$('profileName').value='';document.querySelector('input[name="profileKind"][value="character:"]').checked=true;document.querySelector('input[name="profileGender"][value="male"]').checked=true;profileSeriesSelection='';profileTagSelections=[];renderProfileSelections();$('addProfile').textContent='프로필 등록';$('profileModalTitle').textContent='프로필 등록'}
+$("profileTagsInput").oninput=e=>showProfileTagSug(e.target.value);$("profileTagsInput").onfocus=e=>{if(e.target.value.trim())showProfileTagSug(e.target.value)};
+function resetProfileForm(){editingProfileTag=null;$('profileName').value='';document.querySelector('input[name="profileKind"][value="character:"]').checked=true;profileSeriesSelection='';profileTagSelections=[];renderProfileSelections();$('addProfile').textContent='프로필 등록';$('profileModalTitle').textContent='프로필 등록'}
 function startProfileEdit(tag){
   const row=profileForTag(tag);if(!row)return;
   editingProfileTag=tag;
   const kind=/^cast:/i.test(tagLabel(tag))?'cast:':'character:';
   document.querySelector('input[name="profileKind"][value="'+kind+'"]').checked=true;
   $('profileName').value=profileDisplayName(tag);
-  const meta=profileMeta(tag);profileSeriesSelection=meta?.series||'';profileTagSelections=meta?.prereg||[];document.querySelector('input[name="profileGender"][value="'+(meta?.gender||'male')+'"]')?.click();
+  const meta=profileMeta(tag);profileSeriesSelection=meta?.series||'';profileTagSelections=meta?.prereg||[];
   renderProfileSelections();$('addProfile').textContent='프로필 수정';$('profileModalTitle').textContent='프로필 수정';wsTab='profiles';render();setTimeout(()=>{$('profileModal').classList.add('open');$('profileName')?.focus()},0);
 }
 async function saveProfile(){
@@ -750,8 +769,7 @@ async function saveProfile(){
   const oldName=editingProfileTag;
   if(oldName!==tagName && registeredTags.includes(tagName)){alert('같은 이름의 프로필이 이미 있습니다.');return}
   const old=oldName?registeredTagMeta.find(r=>r.name===oldName):null;
-  const gender=document.querySelector('input[name="profileGender"]:checked')?.value||'male';
-  const row={name:tagName,kind,profile:true,gender,topCategoryId:rootId(activeTopId),topCategoryPath:catPath(rootId(activeTopId)),series:profileSeriesSelection||'',profileTags:[...(profileSeriesSelection?[profileSeriesSelection]:[]),...profileTagSelections]};
+  const row={name:tagName,kind,profile:true,topCategoryId:rootId(activeTopId),topCategoryPath:catPath(rootId(activeTopId)),series:profileSeriesSelection||'',profileTags:[...(profileSeriesSelection?[profileSeriesSelection]:[]),...profileTagSelections]};
   if(old?.id)row.id=old.id;
   if(oldName && oldName!==tagName){await del(ST,oldName);registeredTags=registeredTags.map(t=>t===oldName?tagName:t);registeredTagMeta=registeredTagMeta.map(r=>r.name===oldName?row:r);
     for(const x of items){let changed=false;if((x.tags||[]).includes(oldName)){x.tags=x.tags.map(t=>t===oldName?tagName:t);changed=true}for(const c of x.characters||[]){if((c.tags||[]).includes(oldName)){c.tags=c.tags.map(t=>t===oldName?tagName:t);changed=true}}if(changed){x.updatedAt=Date.now();await put(SB,x)}}
@@ -763,16 +781,14 @@ $("addProfile").onclick=saveProfile;$("openProfileForm").onclick=()=>{resetProfi
 /* 등장인물 UI */
 function normalizeCharacter(c){const tags=[...(c?.tags||[])];const id=tags.find(t=>isIdentityTag(t));const role=c?.role||((id&&/^cast:/i.test(tagLabel(id)))?"cast":"character");return {name:String(c?.name||""),role,gender:c?.gender||"male",tags:[...new Set(tags)]};}
 function profileForTag(t){const low=String(t||"").toLowerCase();return registeredTagMeta.find(r=>r.profile&&String(r.name||"").toLowerCase()===low)||null;}
-function renderChars(){const box=$("charList");if(!box)return;box.innerHTML=curChars.map((c,i)=>{const id=(c.tags||[]).find(t=>isIdentityTag(t));const label=id?tagLabel(id).replace(/^(?:character|cast):\s*/i,""):"";const deps=(c.tags||[]).filter(t=>!isIdentityTag(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));return '<div class="char-box" data-ci="'+i+'"><div class="char-head"><span>등장인물 '+(i+1)+'</span><button type="button" class="btn sm danger" data-chdel="'+i+'">삭제</button></div><fieldset class="char-choice-panel"><legend>Category:</legend><div class="char-choice-row"><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="character" '+(c.role==="character"?"checked":"")+'> character</label><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="cast" '+(c.role==="cast"?"checked":"")+'> cast</label></div><div class="char-choice-row"><span class="char-choice-label">성별:</span><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="male" '+(c.gender==="male"?"checked":"")+'> 남성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="female" '+(c.gender==="female"?"checked":"")+'> 여성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="both" '+(c.gender==="both"?"checked":"")+'> 양성</label></div></fieldset><div class="char-name-field"><input data-cname="'+i+'" placeholder="이름 (선택)" autocomplete="off" value="'+esc(c.name||"")+'"></div><div class="char-tag-picker"><input data-ctag="'+i+'" placeholder="프로필 / '+(c.role==="cast"?"cast":"character")+' 태그 선택 또는 검색" autocomplete="off" value="'+esc(label)+'"><div class="char-tag-suggest" data-ctagsuggest="'+i+'"></div></div><div class="char-tag-picker" style="margin-top:8px"><input data-dtag="'+i+'" placeholder="등장인물에 적용할 태그 검색..." autocomplete="off"><div class="char-tag-suggest" data-dtagsuggest="'+i+'"></div></div><div class="selected" data-ctags="'+i+'">'+deps.map(t=>tagMarkup(t,true)).join("")+'</div></div>';}).join("");box.querySelectorAll("[data-cname]").forEach(inp=>{inp.oninput=()=>{curChars[+inp.dataset.cname].name=inp.value}});box.querySelectorAll("[data-role]").forEach(r=>r.onchange=()=>{const i=+r.dataset.role;curChars[i].role=r.value;const old=(curChars[i].tags||[]).find(t=>isIdentityTag(t));if(old){const v=tagLabel(old).replace(/^(?:character|cast):\s*/i,"");const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";curChars[i].tags=curChars[i].tags.filter(t=>t!==old);curChars[i].tags.unshift(scope+r.value+":"+v);}renderChars();renderSelTags()});box.querySelectorAll("[data-gender]").forEach(r=>r.onchange=()=>{const i=+r.dataset.gender;curChars[i].gender=r.value;renderChars()});box.querySelectorAll("[data-chdel]").forEach(b=>b.onclick=()=>{curChars.splice(+b.dataset.chdel,1);renderChars()});box.querySelectorAll("[data-ctag]").forEach(inp=>{inp.onfocus=()=>{if(inp.value.trim())showCharTagSug(+inp.dataset.ctag,inp.value)};inp.oninput=()=>showCharTagSug(+inp.dataset.ctag,inp.value);inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addIdentityTag(+inp.dataset.ctag,inp.value)}}});box.querySelectorAll("[data-dtag]").forEach(inp=>{inp.onfocus=()=>{if(inp.value.trim())showDependentTagSug(+inp.dataset.dtag,inp.value)};inp.oninput=()=>showDependentTagSug(+inp.dataset.dtag,inp.value);inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addDependentTag(+inp.dataset.dtag,inp.value,true)}}});box.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{const i=+b.closest(".char-box").dataset.ci;curChars[i].tags=(curChars[i].tags||[]).filter(t=>t!==b.dataset.trm);renderChars();renderSelTags()});}
+function renderChars(){const box=$("charList");if(!box)return;box.innerHTML=curChars.map((c,i)=>{const id=(c.tags||[]).find(t=>isIdentityTag(t));const label=id?tagLabel(id).replace(/^(?:character|cast):\s*/i,""):"";const deps=(c.tags||[]).filter(t=>!isIdentityTag(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));return '<div class="char-box" data-ci="'+i+'"><div class="char-head"><span>등장인물 '+(i+1)+'</span><button type="button" class="btn sm danger" data-chdel="'+i+'">삭제</button></div><fieldset class="char-choice-panel"><legend>Category:</legend><div class="char-choice-row"><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="character" '+(c.role==="character"?"checked":"")+'> character</label><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="cast" '+(c.role==="cast"?"checked":"")+'> cast</label></div><div class="char-choice-row"><span class="char-choice-label">성별:</span><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="male" '+(c.gender==="male"?"checked":"")+'> 남성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="female" '+(c.gender==="female"?"checked":"")+'> 여성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="both" '+(c.gender==="both"?"checked":"")+'> 양성</label></div></fieldset><div class="char-name-field"><input data-cname="'+i+'" placeholder="이름 (선택)" autocomplete="off" value="'+esc(c.name||"")+'"></div><div class="char-tag-picker"><input data-ctag="'+i+'" placeholder="프로필 / '+(c.role==="cast"?"cast":"character")+' 태그 선택 또는 검색" autocomplete="off" value="'+esc(label)+'"><div class="char-tag-suggest" data-ctagsuggest="'+i+'"></div></div><div class="char-tag-picker" style="margin-top:8px"><input data-dtag="'+i+'" placeholder="등장인물에 적용할 태그 검색..." autocomplete="off"><div class="char-tag-suggest" data-dtagsuggest="'+i+'"></div></div><div class="selected" data-ctags="'+i+'">'+deps.map(t=>tagMarkup(t,true)).join("")+'</div></div>';}).join("");box.querySelectorAll("[data-cname]").forEach(inp=>{inp.oninput=()=>{curChars[+inp.dataset.cname].name=inp.value}});box.querySelectorAll("[data-role]").forEach(r=>r.onchange=()=>{const i=+r.dataset.role;curChars[i].role=r.value;const old=(curChars[i].tags||[]).find(t=>isIdentityTag(t));if(old){const v=tagLabel(old).replace(/^(?:character|cast):\s*/i,"");const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";curChars[i].tags=curChars[i].tags.filter(t=>t!==old);curChars[i].tags.unshift(scope+r.value+":"+v);}renderChars();renderSelTags()});box.querySelectorAll("[data-gender]").forEach(r=>r.onchange=()=>{curChars[+r.dataset.gender].gender=r.value});box.querySelectorAll("[data-chdel]").forEach(b=>b.onclick=()=>{curChars.splice(+b.dataset.chdel,1);renderChars()});box.querySelectorAll("[data-ctag]").forEach(inp=>{inp.onfocus=()=>{if(inp.value.trim())showCharTagSug(+inp.dataset.ctag,inp.value)};inp.oninput=()=>showCharTagSug(+inp.dataset.ctag,inp.value);inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addIdentityTag(+inp.dataset.ctag,inp.value)}}});box.querySelectorAll("[data-dtag]").forEach(inp=>{inp.onfocus=()=>{if(inp.value.trim())showDependentTagSug(+inp.dataset.dtag,inp.value)};inp.oninput=()=>showDependentTagSug(+inp.dataset.dtag,inp.value);inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addDependentTag(+inp.dataset.dtag,inp.value,true)}}});box.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{const i=+b.closest(".char-box").dataset.ci;curChars[i].tags=(curChars[i].tags||[]).filter(t=>t!==b.dataset.trm);renderChars();renderSelTags()});}
 function showCharTagSug(i,q){const box=document.querySelector('[data-ctagsuggest="'+i+'"]');if(!box)return;const role=curChars[i]?.role||"character";const low=(q||"").replace(/^(?:character|cast):\s*/i,"").trim().toLowerCase();const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const profiles=profileRows().filter(r=>r.name.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(r.name))&&(!low||tagLabel(r.name).slice(tagLabel(r.name).indexOf(":")+1).trim().toLowerCase().includes(low)));const tags=registeredTags.filter(t=>t.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(t))&&!profileForTag(t)&&(!low||tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase().includes(low)));const cand=[...profiles.map(r=>r.name),...tags].filter((v,i,a)=>a.indexOf(v)===i).filter(t=>!(curChars[i].tags||[]).includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<button type="button" data-ctpick="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("");if(low&&!cand.some(t=>tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase()===low))box.innerHTML+='<button type="button" class="new-char-tag" data-ctnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-ctpick]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctpick);box.classList.remove("open")});box.querySelectorAll("[data-ctnew]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctnew,true);box.classList.remove("open")});}
-function genderTagAllowed(tag,gender){const k=tagKindOf(tag);return k==="tag"||(gender==="both"?(k==="male"||k==="female"):k===gender)}
-function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase(),gender=curChars[i]?.gender||"male";const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)&&genderTagAllowed(t,gender)).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||tagLabel(t).toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")).slice(0,15).map(tagLabel);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
+function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase();const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)).map(tagLabel).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||t.toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>a.localeCompare(b,"ko")).slice(0,15);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
 async function addDependentTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const m=raw.match(/^(male|female|tag):\s*(.*)$/i);let store;if(m){store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+m[1].toLowerCase()+":"+m[2].trim()}else{store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+"tag:"+raw}if(!curChars[i].tags)curChars[i].tags=[];if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);if(register&&!registeredTags.includes(store)){const row={name:store,kind:tagKindOf(store)+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}renderChars();renderSelTags()}
 async function addIdentityTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const prof=profileForTag(raw);const role=curChars[i].role||((/^cast:/i.test(tagLabel(raw)))?"cast":"character");const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";const profileName=prof?prof.name:raw;const clean=tagLabel(profileName).replace(/^(?:character|cast):\s*/i,"");const store=scope+role+":"+clean;curChars[i].tags=(curChars[i].tags||[]).filter(t=>!isIdentityTag(t));curChars[i].tags.unshift(store);if(prof){applyProfileToCurrent(i,prof)}else if(register&&!registeredTags.includes(store)){const row={name:store,kind:role+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))};renderChars();renderSelTags()}
 
 function applyProfileToCurrent(i,prof){
   if(!prof)return;
-  if(prof.gender)curChars[i].gender=prof.gender;
   const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";
   for(const t of (prof.profileTags||[])){
     let st=String(t||"").trim();if(!st)continue;
@@ -788,7 +804,7 @@ $("addCharBtn").onclick=addOneChar;
 function showEdit(x){
   editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";
   $("url").value=x?.url||"";$("title").value=x?.title||"";$("notes").value=x?.notes||"";
-  bookmarkSeriesSelection=(x?.tags||[]).find(t=>/^series:/i.test(tagLabel(t)))||"";bookmarkArtistSelection=(x?.tags||[]).find(t=>/^artist:/i.test(tagLabel(t)))||"";curTags=[...(x?.tags||[])].filter(t=>!/^series:/i.test(tagLabel(t))&&!/^artist:/i.test(tagLabel(t)));renderBookmarkSpecialSelections();
+  curTags=[...(x?.tags||[])];
   // 하위 카테고리: 최상위가 아니면 그대로, 최상위만이면 null
   curCatId=x?.categoryId||activeTopId;
   if(curCatId===activeTopId)curCatId=activeTopId; // 기본 최상위
@@ -813,11 +829,9 @@ function renderSelCat(){
   box.innerHTML='<span class="chip cat">'+esc(catPath(curCatId))+' <button type="button" id="clrCat">×</button></span>';
   $("clrCat").onclick=()=>{curCatId=activeTopId;renderSelCat()};
 }
-let bookmarkSeriesSelection="",bookmarkArtistSelection="";function renderBookmarkSpecialSelections(){const s=$("bookmarkSeriesSelected"),a=$("bookmarkArtistSelected");s.innerHTML=bookmarkSeriesSelection?tagMarkup(bookmarkSeriesSelection,true):"";a.innerHTML=bookmarkArtistSelection?tagMarkup(bookmarkArtistSelection,true):"";s.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{bookmarkSeriesSelection="";renderBookmarkSpecialSelections()});a.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{bookmarkArtistSelection="";renderBookmarkSpecialSelections()})}
-function showBookmarkSpecialSug(kind,q){const box=$(kind==="series"?"bookmarkSeriesSuggest":"bookmarkArtistSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"",rx=new RegExp("^"+kind+":","i"),cand=registeredTags.filter(t=>t.startsWith(prefix)&&rx.test(tagLabel(t))&&(!low||tagLabel(t).toLowerCase().includes(low))).slice(0,15);box.innerHTML=cand.map(t=>'<div data-bpick="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-bpick]").forEach(b=>b.onclick=()=>{if(kind==="series")bookmarkSeriesSelection=b.dataset.bpick;else bookmarkArtistSelection=b.dataset.bpick;$(kind==="series"?"bookmarkSeriesInput":"bookmarkArtistInput").value="";box.classList.remove("open");renderBookmarkSpecialSelections()})}
 function showTagSug(q){
   const box=$("tagSuggest"),low=q.toLowerCase();
-  const cand=tagsInScope().filter(t=>!/^(?:\[.*\]\s+)?(?:series|artist):/i.test(t)&&!curTags.includes(t)&&tagLabel(t).toLowerCase().includes(low)).slice(0,12);
+  const cand=tagsInScope().filter(t=>t.toLowerCase().includes(low)&&!curTags.includes(t)).slice(0,12);
   if(!cand.length){box.classList.remove("open");return}
   box.innerHTML=cand.map(t=>'<div data-t="'+esc(t)+'" class="'+tagColor(t)+'">'+esc(tagLabel(t))+'</div>').join("");
   box.classList.add("open");
@@ -843,7 +857,7 @@ function showCatSug(q){
   box.classList.add("open");
   box.querySelectorAll("[data-id]").forEach(d=>d.onclick=()=>{curCatId=d.dataset.id;renderSelCat();$("catPickerInput").value="";box.classList.remove("open")});
 }
-$("bookmarkSeriesInput").oninput=e=>showBookmarkSpecialSug("series",e.target.value);$("bookmarkSeriesInput").onfocus=e=>showBookmarkSpecialSug("series",e.target.value);$("bookmarkArtistInput").oninput=e=>showBookmarkSpecialSug("artist",e.target.value);$("bookmarkArtistInput").onfocus=e=>showBookmarkSpecialSug("artist",e.target.value);$("tagPickerInput").oninput=e=>showTagSug(e.target.value);
+$("tagPickerInput").oninput=e=>showTagSug(e.target.value);
 $("tagPickerInput").onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();const v=e.target.value.trim();if(v){addTag(v);e.target.value="";$("tagSuggest").classList.remove("open")}}};
 $("catPickerInput").oninput=e=>showCatSug(e.target.value);
 $("catPickerInput").onfocus=e=>showCatSug(e.target.value);
@@ -871,7 +885,7 @@ $("saveBtn").onclick=async()=>{
   // 반드시 현재 최상위 트리 안
   if(!descIds(activeTopId).has(categoryId))categoryId=activeTopId;
   await put(SB,{id:editingId||uid(),url,title:$("title").value.trim()||url,categoryId,
-    tags:[...new Set([...curTags,...(bookmarkSeriesSelection?[bookmarkSeriesSelection]:[]),...(bookmarkArtistSelection?[bookmarkArtistSelection]:[])])].sort((a,b)=>tagLabel(a).localeCompare(b,"ko")),characters:chars,notes:$("notes").value.trim(),metaType:mt,
+    tags:[...new Set(curTags)].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")),characters:chars,notes:$("notes").value.trim(),metaType:mt,
     pages:mt==="pages"?(parseInt($("metaPages").value,10)||null):null,
     duration:mt==="duration"?getDur():null,createdAt:old?.createdAt||now,updatedAt:now});
   $("editModal").classList.remove("open");await refresh();
@@ -891,41 +905,17 @@ async function importData(text,name){
     if(j.categories)for(const c of j.categories)if(!getCat(c.id)){await put(SC,c);categories.push(c)}
     if(j.registeredTags)for(const t of j.registeredTags){const row=typeof t==='string'?{name:t}:t;if(!row?.name)continue;await put(ST,row);if(!registeredTags.includes(row.name))registeredTags.push(row.name);const mi=registeredTagMeta.findIndex(r=>r.name===row.name);if(mi>=0)registeredTagMeta[mi]=row;else registeredTagMeta.push(row)}
   }else if(/\.html?$/i.test(name))data=parseHTML(text);else data=parseText(text);
-  let added=0,dups=0;const now=Date.now(),urlMap=new Map(items.map(x=>[normalizeUrl(x.url),x]));
+  let added=0,dups=0;const now=Date.now(),urls=new Set(items.map(x=>normalizeUrl(x.url)));
+  const under=activeTopId||null;
   for(const raw of data){
     if(!raw.url||!/^https?:\/\//i.test(raw.url.trim()))continue;
-    const url=normalizeUrl(raw.url);
-    const existing=urlMap.get(url);
-    if(existing){
-      dups++;
-      let importedCategoryId=null;
-      if(raw.categoryPath?.length){
-        importedCategoryId=await ensurePath(raw.categoryPath,null);
-      }else if(raw.category?.trim()){
-        importedCategoryId=await resolvePath(raw.category,null);
-      }else if(raw.categoryId&&getCat(raw.categoryId)){
-        importedCategoryId=raw.categoryId;
-      }
-      if(importedCategoryId&&existing.categoryId!==importedCategoryId){
-        existing.categoryId=importedCategoryId;
-        existing.updatedAt=now;
-        await put(SB,existing);
-      }
-      continue;
-    }
-    urlMap.set(url,item);
+    const url=normalizeUrl(raw.url);if(urls.has(url)){dups++;continue}urls.add(url);
     const tags=[...new Set((raw.tags||[]).filter(Boolean))];
     for(const t of tags)if(!registeredTags.includes(t)){await put(ST,{name:t});registeredTags.push(t)}
-    let categoryId=null;
-    if(raw.categoryPath?.length){
-      categoryId=await ensurePath(raw.categoryPath,null);
-    }else if(raw.category?.trim()){
-      categoryId=await resolvePath(raw.category,null);
-    }else if(raw.categoryId&&getCat(raw.categoryId)){
-      categoryId=raw.categoryId;
-    }else{
-      categoryId=activeTopId||null;
-    }
+    let categoryId=raw.categoryId||null;
+    if(!categoryId&&raw.categoryPath?.length)categoryId=await ensurePath(raw.categoryPath,under);
+    else if(!categoryId&&raw.category)categoryId=await resolvePath(raw.category,under);
+    else if(!categoryId)categoryId=under;
     const item={id:raw.id||uid(),url,title:raw.title?.trim()||url,categoryId,tags,
       characters:raw.characters||[],notes:raw.notes||"",metaType:raw.metaType||"",
       pages:raw.pages??null,duration:raw.duration??null,createdAt:raw.createdAt||now,updatedAt:now};
