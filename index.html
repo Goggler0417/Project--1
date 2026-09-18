@@ -253,6 +253,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 const DB="tagmark-local-v1", SB="bookmarks", ST="registeredTags", SC="categories", STI="tagIndex";
 let db, items=[], registeredTags=[], registeredTagMeta=[], categories=[];
@@ -421,40 +422,41 @@ async function resolveLoginEmail(loginId){
   return String(data);
 }
 
+function ensureSupabaseClient(){
+  if(supabaseClient)return supabaseClient;
+  if(!syncConfigured())throw new Error("Supabase 설정이 올바르지 않습니다.");
+  if(!window.supabase || typeof window.supabase.createClient!=="function")throw new Error("Supabase SDK가 아직 로드되지 않았습니다. 잠시 후 다시 눌러주세요.");
+  supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
+  supabaseClient.auth.onAuthStateChange((_event,session2)=>{
+    const nextUser=session2?.user||null;
+    syncUser=nextUser;syncHandledUserId=nextUser?.id||null;setSyncButtons();
+    if(syncUser){
+      if(syncBackgroundUserId===syncUser.id)return;
+      syncBackgroundUserId=syncUser.id;
+      setSyncStatus("로그인됨 · 동기화 준비 중…","busy");
+      setTimeout(async()=>{try{await loadSyncNickname();await startRealtime();await initialReconcile()}catch(e){console.error(e);setSyncStatus("Supabase 동기화 실패: "+(e.message||e),"err")}},0);
+    }else{
+      if(syncChannel)supabaseClient.removeChannel(syncChannel);syncChannel=null;syncReady=false;syncInitialized=false;syncNickname="";syncBackgroundUserId=null;setSyncStatus("로그아웃됨","");
+    }
+  });
+  return supabaseClient;
+}
 async function initSupabaseSync(){
   setSyncButtons();
   if(!syncConfigured()){setSyncStatus("Supabase 동기화 설정 필요","");return;}
   try{
-    if(!window.supabase || typeof window.supabase.createClient!=="function")throw new Error("Supabase SDK를 불러오지 못했습니다. 인터넷 연결 또는 CDN 차단을 확인해주세요.");
-    supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:false}});
-    supabaseClient.auth.onAuthStateChange((_event,session2)=>{
-      const nextUser=session2?.user||null;
-      syncUser=nextUser;syncHandledUserId=nextUser?.id||null;setSyncButtons();
-      if(syncUser){
-        if(syncBackgroundUserId===syncUser.id)return;
-        syncBackgroundUserId=syncUser.id;
-        setSyncStatus("로그인됨 · 동기화 준비 중…","busy");
-        setTimeout(async()=>{
-          try{await loadSyncNickname();await startRealtime();await initialReconcile();}
-          catch(e){console.error(e);setSyncStatus("Supabase 동기화 실패: "+(e.message||e),"err");}
-        },0);
-      }else{
-        if(syncChannel)supabaseClient.removeChannel(syncChannel);
-        syncChannel=null;syncReady=false;syncInitialized=false;syncNickname="";syncBackgroundUserId=null;setSyncStatus("로그아웃됨","");
-      }
-    });
+    ensureSupabaseClient();
     const {data:{session}}=await supabaseClient.auth.getSession();
     syncUser=session?.user||null;syncHandledUserId=syncUser?.id||null;setSyncButtons();
     if(syncUser && syncBackgroundUserId!==syncUser.id){
-      syncBackgroundUserId=syncUser.id;
-      setSyncStatus("로그인됨 · 동기화 준비 중…","busy");
+      syncBackgroundUserId=syncUser.id;setSyncStatus("로그인됨 · 동기화 준비 중…","busy");
       setTimeout(async()=>{try{await loadSyncNickname();await startRealtime();await initialReconcile()}catch(e){console.error(e);setSyncStatus("Supabase 동기화 실패: "+(e.message||e),"err")}},0);
     }
-  }catch(e){console.error(e);setSyncStatus("Supabase 초기화 실패: "+(e.message||e),"err")}
+  }catch(e){console.error(e);setSyncStatus("로그인 기능 준비 실패: "+(e.message||e),"err");setSyncButtons()}
 }
 $("syncLoginBtn").onclick=async()=>{
   if(!syncConfigured()){alert("Supabase 설정이 올바르지 않습니다.");return}
-  if(!supabaseClient){setSyncStatus("Supabase 초기화 중…","busy");return}
+  try{ensureSupabaseClient()}catch(e){alert("Supabase 로그인 기능을 준비하지 못했습니다.\n\n"+(e.message||e));return}
   const loginId=prompt("이메일 또는 한 글자 닉네임");if(!loginId)return;
   const password=prompt("비밀번호");if(!password)return;
   setSyncStatus("로그인 중…","busy");
@@ -466,6 +468,7 @@ $("syncLoginBtn").onclick=async()=>{
   }catch(error){
     console.error(error);
     setSyncStatus("로그인 실패: "+(error.message||error),"err");
+    alert("로그인 실패\n\n"+(error.message||error));
   }
 };
 $("syncNicknameBtn").onclick=setSyncNickname;
