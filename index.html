@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Tagmark v2.19 — Supabase Sync</title>
+<title>Tagmark v2.20 — Supabase Sync</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 82.278% 30.98%);--character-both:hsl(270 82.278% 30.98%)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -101,7 +101,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .tag-folder{border:1px solid var(--line);border-radius:12px;background:#fff;margin:7px 0;overflow:hidden}.tag-folder>summary{padding:10px 12px;font-weight:700;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px}.tag-folder>summary::-webkit-details-marker{display:none}.tag-folder>summary:before{content:"›";font-size:18px;transition:transform .15s}.tag-folder[open]>summary:before{transform:rotate(90deg)}.tag-folder-body{padding:8px 10px 11px;border-top:1px solid var(--line)}
 .char-choice-panel{display:grid;grid-template-columns:auto 1fr;gap:9px 18px;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfe}.char-choice-panel legend{font-size:12px;color:var(--muted);padding:0 5px}.char-choice-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.char-choice-row label{display:inline-flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;cursor:pointer;font-size:13px;margin:0}.char-choice-row input{margin:0;width:auto;flex:0 0 auto}.char-choice-label{font-size:13px;font-weight:700;color:var(--muted);min-width:42px}@media(max-width:620px){.char-choice-panel{grid-template-columns:1fr}.char-choice-row{gap:10px 16px}}
 
-/* v2.19 mobile/layout fixes */
+/* v2.20 mobile/layout fixes */
 @media(max-width:760px){
   .app{padding-left:8px;padding-right:8px;padding-bottom:12px}
   header{padding:10px 2px 7px;gap:7px}
@@ -128,6 +128,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   .side-search{padding:8px;font-size:13px}
 }
 @media(max-width:430px){
+  .sort-dir{font-size:10px}.sort-dir input{margin:0}
   header .toolbar .btn{font-size:11px;padding:6px 6px}
   .sync-box .btn{font-size:10px;padding:5px 6px}
   #ws-main .searchbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center}
@@ -136,12 +137,13 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
   #ws-main .bulkbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap}
   #ws-main .bulkbar .count{flex:0 0 auto;margin-right:2px}
 }
+.bookmark-folder{border:1px solid var(--line);border-radius:12px;margin:7px 0;overflow:hidden;background:var(--panel)}.folder-head{display:flex;align-items:center;gap:8px;padding:9px 10px}.folder-toggle{border:0;background:transparent;font:inherit;font-weight:700;cursor:pointer;text-align:left}.folder-meta{color:var(--muted);font-size:12px}.folder-body{padding:0 7px 7px}.sort-dir{display:inline-flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap}
 </style>
 </head>
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.19 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.20 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -186,16 +188,16 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
     <div class="searchbar">
       <div class="search-wrap"><input class="search" id="search" placeholder=""><div class="search-suggest" id="searchSuggest"></div></div>
       <select class="select" id="searchScope">
-        <option value="all">전체</option><option value="title">제목</option>
+        <option value="all">전체 + 모든 태그</option><option value="title">제목</option>
         <option value="tag">태그</option><option value="char">등장인물</option>
       </select>
       <select class="select" id="sort">
-        <option value="updated">최근 수정</option><option value="title">제목</option><option value="domain">도메인</option>
+        <option value="updated">최근 수정</option><option value="title">제목</option><option value="artist">아티스트</option><option value="series">시리즈</option><option value="production">프로덕션</option>
       </select>
-      <select class="select" id="subCatFilter"><option value="">하위 전체</option></select>
+      <select class="select" id="subCatFilter"><option value="">하위 전체</option></select><label class="sort-dir"><input type="checkbox" id="sortDesc" checked> 내림차순</label>
     </div>
     <div class="stats" id="stats"></div>
-    <div class="bulkbar hidden" id="bulkBar"><span class="count" id="bulkCount">0개 선택</span><button class="btn sm" id="bulkSelectAll">현재 목록 전체 선택</button><button class="btn sm" id="bulkClear">선택 해제</button><button class="btn sm primary" id="bulkAddTag">태그 추가</button><button class="btn sm" id="bulkPasteChars">등장인물 붙여넣기</button></div>
+    <div class="bulkbar hidden" id="bulkBar"><span class="count" id="bulkCount">0개 선택</span><button class="btn sm" id="bulkSelectAll">현재 목록 전체 선택</button><button class="btn sm" id="bulkClear">선택 해제</button><button class="btn sm primary" id="bulkAddTag">태그 추가</button><button class="btn sm" id="bulkCreateFolder">폴더 생성</button><button class="btn sm" id="bulkPasteChars">등장인물 붙여넣기</button></div>
     <div class="cards" id="cards"></div>
   </div>
   <!-- 워크스페이스: 태그 관리 -->
@@ -236,11 +238,14 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 </div>
 </div>
 
+<!-- 북마크 폴더 생성 모달 -->
+<div class="modal" id="folderModal"><div class="dialog"><h2>북마크 폴더 생성</h2><div class="field"><label>폴더 제목</label><input id="folderTitle" placeholder="폴더 제목"></div><div class="field"><label>Artist</label><input id="folderArtist" placeholder="Artist"></div><div class="field"><label>Series</label><input id="folderSeries" placeholder="Series"></div><div class="modal-actions"><button class="btn" id="folderCancel">취소</button><button class="btn primary" id="folderApply">생성</button></div></div></div>
+
 <!-- 일괄 태그 추가 모달 -->
 <div class="modal" id="bulkTagModal">
   <div class="dialog">
     <h2>태그 추가</h2>
-    <div class="field"><label>태그 카테고리</label><select id="bulkTagKind" class="select" style="width:100%"><option value="language">Language</option><option value="series">Series</option><option value="artist">Artist</option><option value="tag">Tag</option><option value="production">Production</option><option value="male">Male</option><option value="female">Female</option></select></div>
+    <fieldset class="profile-kind"><legend>태그 카테고리</legend><label><input type="radio" name="bulkTagKind" value="language" checked> Language</label><label><input type="radio" name="bulkTagKind" value="series"> Series</label><label><input type="radio" name="bulkTagKind" value="artist"> Artist</label><label><input type="radio" name="bulkTagKind" value="tag"> Tag</label><label><input type="radio" name="bulkTagKind" value="production"> Production</label><label><input type="radio" name="bulkTagKind" value="male"> Male</label><label><input type="radio" name="bulkTagKind" value="female"> Female</label></fieldset>
     <div class="field"><label>태그</label><div class="picker"><input id="bulkTagInput" placeholder="사전등록 태그 검색 또는 새 태그 입력" autocomplete="off"><div class="suggest tag" id="bulkTagSuggest"></div></div></div>
     <div class="modal-actions"><button class="btn" id="bulkTagCancel">취소</button><button class="btn primary" id="bulkTagApply">추가</button></div>
   </div>
@@ -313,9 +318,13 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-const DB="tagmark-local-v1", SB="bookmarks", ST="registeredTags", SC="categories", STI="tagIndex";
-let db, items=[], registeredTags=[], registeredTagMeta=[], categories=[];
-let tagStates={}, activeTopId=null, includeDesc=true, expanded=new Set();
+const DB="tagmark-local-v1", SB="bookmarks", ST="registeredTags", SC="categories", STI="tagIndex", SF="bookmarkFolders";
+let db, items=[], registeredTags=[], registeredTagMeta=[], categories=[], folders=[];
+let tagStates={}, activeTopId=null, includeDesc=true, expanded=new Set(), tagFilterOpenKinds=new Set(), tagManageOpenKinds=new Set(), profileOpenFolders=new Set();
+function tagCode(t){let h=2166136261;for(const ch of String(t||"")){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+function loadTagFilterStates(){try{const x=JSON.parse(localStorage.getItem("tagmark-tag-filter-states")||"{}");const map=new Map(registeredTags.map(t=>[tagCode(t),t]));const cv=a=>(Array.isArray(a)?a:[]).map(v=>map.get(String(v))||v).filter(v=>registeredTags.includes(v));tagStates={include:cv(x.include),exclude:cv(x.exclude)};}catch(e){tagStates={include:[],exclude:[]}}}
+function saveTagFilterStates(){const cv=a=>[...new Set(a||[])].map(tagCode);localStorage.setItem("tagmark-tag-filter-states",JSON.stringify({include:cv(tagStates.include),exclude:cv(tagStates.exclude)}));if(syncInitialized&&!applyingRemote)scheduleCloudPush()}
+function tagState(tag){return (tagStates.include||[]).includes(tag)?"include":(tagStates.exclude||[]).includes(tag)?"exclude":""}
 let editingId=null, curTags=[], curCatId=null, curChars=[];
 let wsTab="main"; // main | tags | profiles
 let characterPageFilter="";
@@ -333,7 +342,7 @@ const SUPABASE_URL = "https://ogfcrdayneneylxurudv.supabase.co";
 window.addEventListener("error",e=>{if(String(e?.message||"").includes("supabase"))console.error("Supabase SDK error",e)});
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lbermbhd3O8mjN6SaioreA_nLVsVrkm";
 const CLOUD_FILE_ID = "tagmark_main";
-const SYNC_SCHEMA_VERSION = 8;
+const SYNC_SCHEMA_VERSION = 9;
 let supabaseClient=null, syncChannel=null, syncTimer=null, syncBusy=false, applyingRemote=false, syncReady=false, syncInitialized=false;
 let syncUser=null, syncHandledUserId=null, syncNickname="", syncBackgroundUserId=null;
 const syncConfigured=()=>SUPABASE_URL.startsWith("https://") && SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
@@ -348,14 +357,15 @@ function setSyncButtons(){
 }
 function markLocalDirty(){if(applyingRemote)return;localStorage.setItem("tagmark-local-dirty-at",String(Date.now()));}
 async function cloudSnapshot(){
-  return {schemaVersion:SYNC_SCHEMA_VERSION,exportedAt:new Date().toISOString(),bookmarks:await all(SB),registeredTags:await all(ST),categories:await all(SC),visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")};
+  return {schemaVersion:SYNC_SCHEMA_VERSION,exportedAt:new Date().toISOString(),bookmarks:await all(SB),folders:await all(SF),registeredTags:await all(ST),categories:await all(SC),tagFilterStates:{include:[...new Set((tagStates.include||[]).map(tagCode))],exclude:[...new Set((tagStates.exclude||[]).map(tagCode))]},visibleKinds:JSON.parse(localStorage.getItem("tagmark-visible-kinds")||"null")};
 }
 async function replaceLocalFromCloud(data){
   if(!data||typeof data!=="object")throw new Error("클라우드 데이터 형식이 올바르지 않습니다.");
   applyingRemote=true;
   try{
-    const oldB=await all(SB),oldT=await all(ST),oldC=await all(SC);
+    const oldB=await all(SB),oldF=await all(SF),oldT=await all(ST),oldC=await all(SC);
     for(const r of oldB)await del(SB,r.id,{skipSync:true});
+    for(const r of oldF)await del(SF,r.id,{skipSync:true});
     for(const r of oldT)await del(ST,r.name,{skipSync:true});
     for(const r of oldC)await del(SC,r.id,{skipSync:true});
     for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
@@ -364,6 +374,7 @@ async function replaceLocalFromCloud(data){
   if(tagRecord?.name)await put(ST,tagRecord,{skipSync:true});
 }
     for(const r of (data.categories||[]))if(r?.id)await put(SC,r,{skipSync:true});
+    await loadTagIndex();await ensureTagIds(registeredTags);if(data.tagFilterStates&&typeof data.tagFilterStates==="object"){const map=new Map(registeredTags.map(t=>[tagCode(t),t]));const cv=a=>(a||[]).map(v=>map.get(String(v))||v).filter(v=>registeredTags.includes(v));tagStates={include:cv(data.tagFilterStates.include),exclude:cv(data.tagFilterStates.exclude)};saveTagFilterStates()}
     if(Array.isArray(data.visibleKinds))localStorage.setItem("tagmark-visible-kinds",JSON.stringify(data.visibleKinds));
     else localStorage.removeItem("tagmark-visible-kinds");
     await refresh();
@@ -579,7 +590,7 @@ function setDur(str){const m=String(str||"00:00:00").match(/^(\d{1,2}):(\d{1,2})
   $("durH").value=m?+m[1]:0;$("durM").value=m?+m[2]:0;$("durS").value=m?+m[3]:0}
 
 /* IndexedDB */
-function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,5);r.onupgradeneeded=e=>{const d=e.target.result,tx=e.target.transaction;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,6);r.onupgradeneeded=e=>{const d=e.target.result,tx=e.target.transaction;
   if(d.objectStoreNames.contains(SB)){
     const old=tx.objectStore(SB);
     const kp=old.keyPath;
@@ -600,12 +611,13 @@ function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,5);r.
   if(!d.objectStoreNames.contains(ST))d.createObjectStore(ST,{keyPath:"name"});
   if(!d.objectStoreNames.contains(SC))d.createObjectStore(SC,{keyPath:"id"});
   if(!d.objectStoreNames.contains(STI))d.createObjectStore(STI,{keyPath:"id"});
+  if(!d.objectStoreNames.contains(SF))d.createObjectStore(SF,{keyPath:"id"});
 };r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error)})}
 let tagNameToId=new Map,tagIdToName=new Map,tagSeq=1;
 async function loadTagIndex(){tagNameToId.clear();tagIdToName.clear();const a=await rawAll(STI);for(const r of a){if(r?.id!=null&&r.name){tagNameToId.set(r.name,r.id);tagIdToName.set(r.id,r.name);tagSeq=Math.max(tagSeq,Number(r.id)+1)}}}
 async function ensureTagIds(tags){const ids=[];for(const t of tags||[]){if(!t)continue;let id=tagNameToId.get(t);if(id==null){id=tagSeq++;tagNameToId.set(t,id);tagIdToName.set(id,t);await rawPut(STI,{id,name:t},{skipSync:true})}ids.push(id)}return ids}
-async function encodeBookmark(x){const tags=[...new Set(x.tags||[])],cts=[];const ti=await ensureTagIds(tags);for(const c of x.characters||[]){cts.push({n:c.name||"",r:c.role||"character",g:c.gender||"male",t:await ensureTagIds([...new Set(c.tags||[])])})}return {i:x.id,u:x.url,l:x.title,c:x.categoryId||null,t:ti,h:cts,n:x.notes||"",m:x.metaType||"",p:x.pages??null,d:x.duration??null,a:x.createdAt||Date.now(),b:x.updatedAt||Date.now()}}
-function decodeBookmark(r){if(r?.i!==undefined)return {id:r.i,url:r.u,title:r.l,categoryId:r.c||null,tags:(r.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean),characters:(r.h||[]).map(c=>({name:c.n||"",role:c.r||"character",gender:c.g||"male",tags:(c.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean)})),notes:r.n||"",metaType:r.m||"",pages:r.p??null,duration:r.d??null,createdAt:r.a,updatedAt:r.b};return r}
+async function encodeBookmark(x){const tags=[...new Set(x.tags||[])],cts=[];const ti=await ensureTagIds(tags);for(const c of x.characters||[]){cts.push({n:c.name||"",r:c.role||"character",g:c.gender||"male",t:await ensureTagIds([...new Set(c.tags||[])])})}return {i:x.id,u:x.url,l:x.title,c:x.categoryId||null,f:x.folderId||null,t:ti,h:cts,n:x.notes||"",m:x.metaType||"",p:x.pages??null,d:x.duration??null,a:x.createdAt||Date.now(),b:x.updatedAt||Date.now()}}
+function decodeBookmark(r){if(r?.i!==undefined)return {id:r.i,url:r.u,title:r.l,categoryId:r.c||null,folderId:r.f||null,tags:(r.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean),characters:(r.h||[]).map(c=>({name:c.n||"",role:c.r||"character",gender:c.g||"male",tags:(c.t||[]).map(id=>tagIdToName.get(id)).filter(Boolean)})),notes:r.n||"",metaType:r.m||"",pages:r.p??null,duration:r.d??null,createdAt:r.a,updatedAt:r.b};return r}
 const rawAll=n=>new Promise((res,rej)=>{if(!db)return rej(new Error("로컬 DB가 초기화되지 않았습니다."));const r=db.transaction(n).objectStore(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)});
 const rawPut=(n,v,opts={})=>new Promise((res,rej)=>{if(!db)return rej(new Error("로컬 DB가 초기화되지 않았습니다."));const r=db.transaction(n,"readwrite").objectStore(n).put(v);r.onsuccess=()=>{res();if(!opts.skipSync)scheduleCloudPush()};r.onerror=()=>rej(r.error)});
 const all=async n=>n===SB?(await rawAll(n)).map(decodeBookmark):rawAll(n);
@@ -636,12 +648,13 @@ const resolvePath=(s,under)=>!s?.trim()?under||null:ensurePath(s.split(/[/＞>]/
 
 /* 로드 */
 async function refresh(){
-  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;categories=await all(SC);
+  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);folders=await rawAll(SF);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;await ensureTagIds(registeredTags);loadTagFilterStates();categories=await all(SC);
   const legacy=raw.filter(r=>r?.id&&!r.i);for(const x of items)if(legacy.some(r=>r.id===x.id))await put(SB,x,{skipSync:true});
   for(const row of registeredTagMeta){if(row?.profile&&!row.topCategoryId){const rid=profileTopCategoryId(row);if(rid){row.topCategoryId=rid;row.topCategoryPath=catPath(rid);await put(ST,row)}}}
   for(const x of items){if(x.category&&!x.categoryId){const id=await resolvePath(x.category,null);if(id){x.categoryId=id;delete x.category;await put(SB,x)}}}
   const used=new Set();items.forEach(x=>{(x.tags||[]).forEach(t=>used.add(t));(x.characters||[]).forEach(ch=>(ch.tags||[]).forEach(t=>used.add(t)))});
   registeredTags.forEach(t=>used.add(t));registeredTags=[...used].sort((a,b)=>a.localeCompare(b,"ko"));
+  for(const r of registeredTagMeta){if(getTagUsageCount(r.name)>0&&r.everUsed!==true){r.everUsed=true;await put(ST,r,{skipSync:true})}}
   if(activeTopId&&!getCat(activeTopId))activeTopId=null;
   render();
 }
@@ -675,25 +688,20 @@ async function refresh(){
 function scopeIds(){return activeTopId?descIds(activeTopId):null}
 function getFiltered(){
   const q=$("search").value.trim().toLowerCase(), scope=$("searchScope").value||"all";
+  const qs=q?String($("search").value).split(/[,，]/).map(v=>v.trim().toLowerCase()).filter(Boolean):[];
   const sub=$("subCatFilter")?.value||"";
   const ids=scopeIds();
   return items.filter(x=>{
     if(ids){if(!x.categoryId||!ids.has(x.categoryId))return false}
     if(sub){const sid=descIds(sub);if(!x.categoryId||!sid.has(x.categoryId))return false}
-    if(q){
-      let t="";
-      if(scope==="title")t=(x.title||"").toLowerCase();
-      else if(scope==="tag")t=[...(x.tags||[]),...(x.characters||[]).flatMap(c=>c.tags||[])].join(" ").toLowerCase();
-      else if(scope==="char")t=(x.characters||[]).map(c=>[characterDisplayName(c,x.characters||[]),c.role||"",c.gender,(c.tags||[]).join(" ")].join(" ")).join(" ").toLowerCase();
-      else t=[x.title,x.url,x.notes,x.categoryId?catPath(x.categoryId):"",...(x.tags||[]),
-        ...(x.characters||[]).flatMap(c=>[c.name,...(c.tags||[])])].join(" ").toLowerCase();
-      if(!t.includes(q))return false;
+    if(qs.length){
+      const allTags=[...(x.tags||[]),...(x.characters||[]).flatMap(c=>c.tags||[])];
+      const t=scope==="title"?(x.title||"").toLowerCase():scope==="tag"?allTags.join(" ").toLowerCase():scope==="char"?(x.characters||[]).map(c=>[characterDisplayName(c,x.characters||[]),c.role||"",c.gender,(c.tags||[]).join(" ")].join(" ")).join(" ").toLowerCase():[x.title,...allTags,x.categoryId?catPath(x.categoryId):"",x.notes].join(" ").toLowerCase();
+      if(!qs.every(v=>t.includes(v)))return false;
     }
     const ts=new Set([...(x.tags||[]),...(x.characters||[]).flatMap(c=>c.tags||[])]);
-    for(const[tag,st] of Object.entries(tagStates)){
-      if(st==="include"&&!ts.has(tag))return false;
-      if(st==="exclude"&&ts.has(tag))return false;
-    }
+    for(const tag of (tagStates.include||[]))if(!ts.has(tag))return false;
+    for(const tag of (tagStates.exclude||[]))if(ts.has(tag))return false;
     return true;
   });
 }
@@ -752,13 +760,18 @@ async function addCat(name,parentId=null){
   walk(activeTopId,0);sel.innerHTML=opts;if(cur)sel.value=cur;
 }
 
-/** 메인 목록 */ function renderResults(){
-  const list=getFiltered(), sort=$("sort").value;
+/** 메인 목록 */ function sortValue(x,sort){if(sort==="title")return x.title||"";if(sort==="artist")return typedTagValue(x.tags,"artist").join(", ");if(sort==="series")return typedTagValue(x.tags,"series").join(", ");if(sort==="production")return typedTagValue(x.tags,"production").join(", ");return x.updatedAt||0;}
+function folderSortValue(f,sort){if(sort==="title")return f.title||"";if(sort==="artist")return f.artist||"";if(sort==="series")return f.series||"";if(sort==="production")return "";return f.updatedAt||0;}
+function renderResults(){
+  const list=getFiltered(), sort=$("sort").value, desc=$("sortDesc")?.checked!==false;
   const visibleIds=new Set(list.map(x=>x.id));selectedIds=new Set([...selectedIds].filter(id=>visibleIds.has(id)));
-  list.sort((a,b)=>sort==="title"?(a.title||"").localeCompare(b.title||"","ko"):sort==="domain"?domain(a.url).localeCompare(domain(b.url)):b.updatedAt-a.updatedAt);
-  $("stats").textContent=list.length+"개 표시 · 범위 내 "+items.filter(x=>x.categoryId&&scopeIds().has(x.categoryId)).length+"개";
-  $("cards").innerHTML=list.length?list.map(card).join(""):'<div class="empty">북마크가 없습니다.</div>';
-  if(list.length)bindCards();
+  const grouped=new Map(),entities=[];
+  for(const x of list){if(x.folderId&&folders.some(f=>f.id===x.folderId)){if(!grouped.has(x.folderId))grouped.set(x.folderId,[]);grouped.get(x.folderId).push(x)}else entities.push({type:"bookmark",item:x})}
+  for(const [id,arr] of grouped){const f=folders.find(v=>v.id===id);if(f)entities.push({type:"folder",item:f,children:arr})}
+  entities.sort((a,b)=>{const av=a.type==="folder"?folderSortValue(a.item,sort):sortValue(a.item,sort),bv=b.type==="folder"?folderSortValue(b.item,sort):sortValue(b.item,sort);const c=typeof av==="number"?av-bv:String(av).localeCompare(String(bv),"ko");return desc?-c:c});
+  let html=entities.map(e=>e.type==="bookmark"?card(e.item):'<section class="bookmark-folder '+(expanded.has(e.item.id)?'open':'')+'" data-folder="'+esc(e.item.id)+'"><div class="folder-head"><button type="button" class="folder-toggle" data-folder-toggle="'+esc(e.item.id)+'">'+(expanded.has(e.item.id)?'▼':'▶')+' '+esc(e.item.title||"폴더")+'</button><span class="meta">'+e.children.length+'개</span><span class="folder-meta">'+esc([e.item.artist,e.item.series].filter(Boolean).join(" · "))+'</span></div>'+(expanded.has(e.item.id)?'<div class="folder-body">'+e.children.map(card).join("")+'</div>':'')+'</section>').join("");
+  $("stats").textContent=list.length+"개 표시 · 범위 내 "+items.filter(x=>x.categoryId&&scopeIds().has(x.categoryId)).length+"개";$("cards").innerHTML=html||'<div class="empty">북마크가 없습니다.</div>';if(html)bindCards();
+  $("cards").querySelectorAll('[data-folder-toggle]').forEach(b=>b.onclick=()=>{const id=b.dataset.folderToggle;if(expanded.has(id))expanded.delete(id);else expanded.add(id);renderResults();updateBulkBar()});
 }
 function characterIdentity(c){const identity=(c.tags||[]).find(t=>isIdentityTag(t));return identity?tagLabel(identity):"";}
 function characterDisplayName(c,allChars=[]){if(String(c?.name||"").trim())return String(c.name).trim();const id=characterIdentity(c);if(id){const p=id.indexOf(":");return id.slice(p+1).trim()||id}const g={male:"남성",female:"여성",both:"양성"}[c.gender]||"등장인물";const n=allChars.filter(x=>!String(x?.name||"").trim()&&!characterIdentity(x)&&x.gender===c.gender).indexOf(c)+1;return g+" "+(n>0?n:1);}
@@ -805,33 +818,36 @@ function updateBulkBar(){
 }
 function openBulkTagModal(){
   if(!selectedIds.size){alert("북마크를 먼저 선택하세요.");return}
-  $("bulkTagKind").value="language";$('bulkTagInput').value="";$('bulkTagSuggest').classList.remove("open");$("bulkTagModal").classList.add("open");$('bulkTagInput').focus();
+  document.querySelector('input[name="bulkTagKind"][value="language"]').checked=true;$('bulkTagInput').value="";$('bulkTagSuggest').classList.remove("open");$("bulkTagModal").classList.add("open");$('bulkTagInput').focus();
 }
 function showBulkTagSug(q){
-  const kind=$("bulkTagKind").value,low=(q||"").trim().toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"",rx=new RegExp("^"+kind+":","i");
+  const kind=document.querySelector('input[name="bulkTagKind"]:checked')?.value||"language",low=(q||"").trim().toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"",rx=new RegExp("^"+kind+":","i");
   const cand=registeredTags.filter(t=>t.startsWith(prefix)&&rx.test(tagLabel(t))&&(!low||tagLabel(t).toLowerCase().includes(low))).slice(0,20),box=$("bulkTagSuggest");
   box.innerHTML=cand.map(t=>'<button type="button" data-bulkpick="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("");
   if(low&&!cand.some(t=>tagLabel(t).replace(new RegExp("^"+kind+":","i"),"").trim().toLowerCase()===low))box.innerHTML+='<button type="button" class="new-char-tag" data-bulknew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 새 태그로 추가</button>';
   box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll('[data-bulkpick]').forEach(b=>b.onclick=()=>{$('bulkTagInput').value=tagLabel(b.dataset.bulkpick).replace(new RegExp('^'+kind+':','i'),'');box.classList.remove('open')});box.querySelectorAll('[data-bulknew]').forEach(b=>b.onclick=()=>{$('bulkTagInput').value=b.dataset.bulknew;box.classList.remove('open')});
 }
 async function applyBulkTag(){
-  const kind=$("bulkTagKind").value,raw=$("bulkTagInput").value.trim();if(!raw)return;
+  const kind=document.querySelector('input[name="bulkTagKind"]:checked')?.value||"language",raw=$("bulkTagInput").value.trim();if(!raw)return;
   let name=raw.replace(new RegExp('^'+kind+':\\s*','i'),'').trim();if(!name)return;const storeName=(activeTopId?"["+catPath(activeTopId)+"] ":"")+kind+":"+name;
-  if(!registeredTags.includes(storeName)){const row={name:storeName,kind:kind+":"};await put(ST,row);registeredTags.push(storeName);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}
+  if(!registeredTags.includes(storeName)){const row={name:storeName,kind:kind+":",everUsed:true};await put(ST,row);registeredTags.push(storeName);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}
   const now=Date.now();for(const id of selectedIds){const x=items.find(v=>v.id===id);if(!x)continue;
-    if(kind==="series")x.tags=[...new Set([...(x.tags||[]).filter(t=>!/^series:/i.test(tagLabel(t))),storeName])];
-    else if(kind==="artist")x.tags=[...new Set([...(x.tags||[]).filter(t=>!/^artist:/i.test(tagLabel(t))),storeName])];
-    else x.tags=[...new Set([...(x.tags||[]),storeName])];x.updatedAt=now;await put(SB,x);}
-  selectedIds.clear();$("bulkTagModal").classList.remove("open");await refresh();
+    if(kind==="series"){for(const t of (x.tags||[]).filter(t=>/^series:/i.test(tagLabel(t)))){const r=registeredTagMeta.find(r=>r.name===t);if(r)r.everUsed=true}x.tags=[...new Set([...(x.tags||[]).filter(t=>!/^series:/i.test(tagLabel(t))),storeName])];}
+    else if(kind==="artist"){for(const t of (x.tags||[]).filter(t=>/^artist:/i.test(tagLabel(t)))){const r=registeredTagMeta.find(r=>r.name===t);if(r)r.everUsed=true}x.tags=[...new Set([...(x.tags||[]).filter(t=>!/^artist:/i.test(tagLabel(t))),storeName])];}
+    else x.tags=[...new Set([...(x.tags||[]),storeName])];x.updatedAt=now;await put(SB,x);await touchFolder(x.folderId,now);}
+  for(const x of items){for(const t of (x.tags||[])){const r=registeredTagMeta.find(r=>r.name===t);if(r)r.everUsed=true}await Promise.all(registeredTagMeta.filter(r=>r.everUsed).map(r=>put(ST,r)));}selectedIds.clear();$("bulkTagModal").classList.remove("open");await refresh();
 }
 async function bulkPasteCharacters(){
   if(!selectedIds.size){alert("붙여넣을 북마크를 선택하세요.");return}
   if(!characterClipboard?.length){alert("수정 팝업에서 등장인물을 선택한 뒤 Copy Character/Cast를 눌러주세요.");return}
   const now=Date.now();for(const id of selectedIds){const x=items.find(v=>v.id===id);if(!x)continue;const names=new Set((x.characters||[]).map(c=>String(c.name||"").trim()).filter(Boolean));
-    for(const c0 of characterClipboard){const c=structuredClone(c0);c.name=uniqueCharacterName(c.name,names);names.add(c.name);x.characters=[...(x.characters||[]),c]}x.updatedAt=now;await put(SB,x)}
+    for(const c0 of characterClipboard){const c=structuredClone(c0);c.name=uniqueCharacterName(c.name,names);names.add(c.name);x.characters=[...(x.characters||[]),c]}x.updatedAt=now;await put(SB,x);await touchFolder(x.folderId,now)}
   selectedIds.clear();await refresh();
 }
 
+async function touchFolder(folderId,now=Date.now()){if(!folderId)return;const f=folders.find(v=>v.id===folderId);if(f){f.updatedAt=now;await put(SF,f)}}
+async function createBookmarkFolder(){if(!selectedIds.size){alert("북마크를 먼저 선택하세요.");return}$("folderTitle").value="";$("folderArtist").value="";$("folderSeries").value="";$("folderModal").classList.add("open");$("folderTitle").focus()}
+async function applyBookmarkFolder(){const title=$("folderTitle").value.trim();if(!title){alert("폴더 제목을 입력하세요.");return}const ids=[...selectedIds],now=Date.now(),f={id:uid(),title,artist:$('folderArtist').value.trim(),series:$('folderSeries').value.trim(),createdAt:now,updatedAt:now};await put(SF,f);folders.push(f);for(const id of ids){const x=items.find(v=>v.id===id);if(x){x.folderId=f.id;x.updatedAt=now;await put(SB,x)}}expanded.add(f.id);selectedIds.clear();$("folderModal").classList.remove("open");await refresh()}
 function bindCards(){
   $("cards").querySelectorAll("[data-select]").forEach(b=>b.onchange=()=>{const id=b.dataset.select;if(b.checked)selectedIds.add(id);else selectedIds.delete(id);updateBulkBar()});
   $("cards").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editItem(b.getAttribute("data-edit")));
@@ -843,11 +859,11 @@ function bindCards(){
 
 /* 태그 (현재 최상위 범위) */
 function tagsInScope(){const ids=scopeIds(),set=new Set();for(const x of items){if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;(x.tags||[]).forEach(t=>set.add(t));(x.characters||[]).forEach(c=>(c.tags||[]).forEach(t=>set.add(t)))}const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";for(const t of registeredTags){if(!prefix||t.startsWith(prefix))set.add(t)}return [...set].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"))}
-function renderTagGrid(){const q=($("tagFilterSearch")?.value||"").trim().toLowerCase(),counts={},ids=scopeIds();for(const x of items){if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;const used=new Set(x.tags||[]);(x.characters||[]).forEach(c=>(c.tags||[]).forEach(t=>used.add(t)));used.forEach(t=>counts[t]=(counts[t]||0)+1)}const all=tagsInScope(),vis=q?all.filter(t=>tagLabel(t).toLowerCase().includes(q)):all;const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};vis.forEach(t=>groups[tagKindOf(t)].push(t));const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];$('tagGrid').innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-filter-folder"><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-filter-folder-body">'+arr.map(t=>'<button class="tb '+(tagStates[t]||"")+' '+tagColor(t)+'" data-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+(counts[t]||0)+'</span></button>').join("")+'</div></details>'}).join("")||'<div class="empty" style="padding:16px">태그 없음</div>';$('tagGrid').querySelectorAll('.tb').forEach(b=>b.onclick=()=>cycleTag(b.dataset.tag))}
-function cycleTag(tag){const c=tagStates[tag]||null;if(!c)tagStates[tag]="include";else if(c==="include")tagStates[tag]="exclude";else delete tagStates[tag];render()}
+function renderTagGrid(){const q=($("tagFilterSearch")?.value||"").trim().toLowerCase(),counts={},ids=scopeIds();for(const x of items){if(ids&&(!x.categoryId||!ids.has(x.categoryId)))continue;const used=new Set(x.tags||[]);(x.characters||[]).forEach(c=>(c.tags||[]).forEach(t=>used.add(t)));used.forEach(t=>counts[t]=(counts[t]||0)+1)}const all=tagsInScope(),vis=q?all.filter(t=>tagLabel(t).toLowerCase().includes(q)):all;const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};vis.forEach(t=>groups[tagKindOf(t)].push(t));const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];$('tagGrid').innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-filter-folder" data-tag-kind="'+k+'" '+(tagFilterOpenKinds.has(k)?'open':'')+'><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-filter-folder-body">'+arr.map(t=>'<button class="tb '+tagState(t)+' '+tagColor(t)+'" data-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+(counts[t]||0)+'</span></button>').join("")+'</div></details>'}).join("")||'<div class="empty" style="padding:16px">태그 없음</div>';$('tagGrid').querySelectorAll('details[data-tag-kind]').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)tagFilterOpenKinds.add(d.dataset.tagKind);else tagFilterOpenKinds.delete(d.dataset.tagKind)}));$('tagGrid').querySelectorAll('.tb').forEach(b=>b.onclick=()=>cycleTag(b.dataset.tag))}
+function cycleTag(tag){let i=tagStates.include||[],e=tagStates.exclude||[];i=i.filter(x=>x!==tag);e=e.filter(x=>x!==tag);if(!(tagStates.include||[]).includes(tag)&&!(tagStates.exclude||[]).includes(tag))i.push(tag);else if((tagStates.include||[]).includes(tag))e.push(tag);tagStates={include:i,exclude:e};saveTagFilterStates();renderResults();renderTagGrid();}
 function tagKindOf(t){const m=tagLabel(t).toLowerCase().match(/^(male|female|artist|series|language|character|cast|tag|production):/);return m?m[1]:"tag"}
 function getTagUsageCount(tag){let count=0;for(const x of items)if((x.tags||[]).includes(tag)||(x.characters||[]).some(c=>(c.tags||[]).includes(tag)))count++;return count}
-function renderRegList(){const box=$("registeredTagList");if(!box)return;const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const list=registeredTags.filter(t=>(prefix?t.startsWith(prefix):!/^\[/.test(t)));const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};for(const t of list)groups[tagKindOf(t)].push(t);const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];box.innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-folder"><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-folder-body">'+arr.map(t=>'<div class="reg-row">'+tagMarkup(t)+'<span class="meta" style="margin-left:auto">'+getTagUsageCount(t)+'</span><button class="btn sm" data-ren="'+esc(t)+'">수정</button><button class="btn sm danger" data-rd="'+esc(t)+'">삭제</button></div>').join("")+'</div></details>';}).join("")||'<div class="empty" style="padding:8px">등록 없음</div>';box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=async()=>{const old=b.dataset.ren,neu=prompt("새 이름:",tagLabel(old));if(!neu?.trim())return;const raw=neu.trim(),kind=tagKindOf(old),name=prefix+kind+":"+raw;if(name===old)return;const oldMeta=registeredTagMeta.find(r=>r.name===old);await del(ST,old);const nm=oldMeta?{...oldMeta,name}:{name,kind:kind+":"};await put(ST,nm);registeredTagMeta=registeredTagMeta.map(r=>r.name===old?nm:r);registeredTags=registeredTags.map(t=>t===old?name:t);for(const x of items){if((x.tags||[]).includes(old)){x.tags=x.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}for(const ch of x.characters||[])if((ch.tags||[]).includes(old)){ch.tags=ch.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}}if(tagStates[old]){tagStates[name]=tagStates[old];delete tagStates[old]}await refresh();});box.querySelectorAll("[data-rd]").forEach(b=>b.onclick=async()=>{const name=b.dataset.rd;if(!confirm("등록 삭제? (북마크 태그는 유지)"))return;await del(ST,name);registeredTags=registeredTags.filter(t=>t!==name);registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);delete tagStates[name];render()});}
+function renderRegList(){const box=$("registeredTagList");if(!box)return;const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const list=registeredTags.filter(t=>(prefix?t.startsWith(prefix):!/^\[/.test(t)));const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};for(const t of list)groups[tagKindOf(t)].push(t);const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];box.innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-folder" data-tag-manage-kind="'+k+'" '+(tagManageOpenKinds.has(k)?'open':'')+'><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-folder-body">'+arr.map(t=>'<div class="reg-row">'+tagMarkup(t)+'<span class="meta" style="margin-left:auto">'+getTagUsageCount(t)+'</span><button class="btn sm" data-ren="'+esc(t)+'">수정</button><button class="btn sm danger" data-rd="'+esc(t)+'">삭제</button></div>').join("")+'</div></details>';}).join("")||'<div class="empty" style="padding:8px">등록 없음</div>';box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=async()=>{const old=b.dataset.ren,neu=prompt("새 이름:",tagLabel(old));if(!neu?.trim())return;const raw=neu.trim(),kind=tagKindOf(old),name=prefix+kind+":"+raw;if(name===old)return;const oldMeta=registeredTagMeta.find(r=>r.name===old);await del(ST,old);const nm=oldMeta?{...oldMeta,name}:{name,kind:kind+":"};await put(ST,nm);registeredTagMeta=registeredTagMeta.map(r=>r.name===old?nm:r);registeredTags=registeredTags.map(t=>t===old?name:t);for(const x of items){if((x.tags||[]).includes(old)){x.tags=x.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}for(const ch of x.characters||[])if((ch.tags||[]).includes(old)){ch.tags=ch.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}}if((tagStates.include||[]).includes(old))tagStates.include=tagStates.include.map(t=>t===old?name:t);if((tagStates.exclude||[]).includes(old))tagStates.exclude=tagStates.exclude.map(t=>t===old?name:t);saveTagFilterStates();await refresh();});box.querySelectorAll("details[data-tag-manage-kind]").forEach(d=>d.addEventListener("toggle",()=>{if(d.open)tagManageOpenKinds.add(d.dataset.tagManageKind);else tagManageOpenKinds.delete(d.dataset.tagManageKind)}));box.querySelectorAll("[data-rd]").forEach(b=>b.onclick=async()=>{const name=b.dataset.rd;if(!confirm("등록 삭제? 북마크에서도 이 태그를 모두 삭제합니다."))return;await del(ST,name);registeredTags=registeredTags.filter(t=>t!==name);registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);tagStates={include:(tagStates.include||[]).filter(t=>t!==name),exclude:(tagStates.exclude||[]).filter(t=>t!==name)};saveTagFilterStates();for(const x of items){let changed=false;if((x.tags||[]).includes(name)){x.tags=x.tags.filter(t=>t!==name);changed=true}for(const c of x.characters||[]){if((c.tags||[]).includes(name)){c.tags=c.tags.filter(t=>t!==name);changed=true}}if(changed){x.updatedAt=Date.now();await put(SB,x)}}await cleanupZeroUseTags();await refresh()});}
 function pageTagButton(t){return '<button class="tb '+(tagStates[t]||"")+' '+tagColor(t)+'" data-page-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+getTagUsageCount(t)+'</span></button>';}
 function profileTopCategoryId(row){
   if(!row)return null;
@@ -879,18 +895,18 @@ function renderProfilePage(){
   const keys=Object.keys(folders).sort((a,b)=>a.localeCompare(b,"ko"));
   box.innerHTML=keys.length?keys.map(series=>{
     const rows=folders[series].sort((a,b)=>profileDisplayName(a.tag).localeCompare(profileDisplayName(b.tag),"ko"));
-    return '<details class="profile-folder"><summary><span>'+esc(series)+'</span><span class="meta">'+rows.length+'개</span></summary><div class="profile-folder-body">'+rows.map(({tag,meta})=>{
+    return '<details class="profile-folder" data-profile-folder="'+esc(series)+'" '+(profileOpenFolders.has(series)?'open':'')+'><summary><span>'+esc(series)+'</span><span class="meta">'+rows.length+'개</span></summary><div class="profile-folder-body">'+rows.map(({tag,meta})=>{
       const kind=/^cast:/i.test(tagLabel(tag))?"Cast":"Character";
       const prereg=(meta?.prereg||[]).map(t=>tagMarkup(t)).join("");
       const gender={male:"남성",female:"여성",both:"양성"}[meta?.gender||"male"]||"남성";
       return '<article class="profile-card"><div class="profile-card-title gender-'+esc(meta?.gender||"male")+'">'+esc(profileDisplayName(tag))+'</div><div class="profile-card-line"><span class="profile-label">태그 카테고리</span><span class="chip character">'+kind+'</span></div><div class="profile-card-line"><span class="profile-label">성별</span><span class="profile-value">'+gender+'</span></div><div class="profile-card-line"><span class="profile-label">시리즈</span><span class="profile-value">'+esc(series)+'</span></div><div class="profile-card-line"><span class="profile-label">사전등록 태그</span><div class="chips profile-tags">'+(prereg||'<span class="meta">없음</span>')+'</div></div><div class="profile-card-actions"><button type="button" class="btn sm primary" data-profile-edit="'+esc(tag)+'">수정</button><button type="button" class="btn sm danger" data-profile-delete="'+esc(tag)+'">삭제</button></div></article>';
     }).join("")+'</div></details>';
   }).join(""):'<div class="empty" style="padding:16px">등록된 Character / Cast 프로필이 없습니다.</div>';
-  box.querySelectorAll("[data-profile-edit]").forEach(b=>b.onclick=()=>startProfileEdit(b.dataset.profileEdit));
+  box.querySelectorAll("details[data-profile-folder]").forEach(d=>d.addEventListener("toggle",()=>{const k=d.dataset.profileFolder;if(d.open)profileOpenFolders.add(k);else profileOpenFolders.delete(k)}));box.querySelectorAll("[data-profile-edit]").forEach(b=>b.onclick=()=>startProfileEdit(b.dataset.profileEdit));
   box.querySelectorAll("[data-profile-delete]").forEach(b=>b.onclick=async()=>{
     const name=b.dataset.profileDelete,row=profileForTag(name);if(!row)return;
     if(!confirm('이 프로필을 삭제할까요?\n프로필 태그가 태그 관리와 기존 북마크/등장인물에서 함께 삭제됩니다.'))return;
-    await del(ST,name);registeredTags=registeredTags.filter(t=>t!==name);registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);delete tagStates[name];
+    await del(ST,name);registeredTags=registeredTags.filter(t=>t!==name);registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);tagStates={include:(tagStates.include||[]).filter(t=>t!==name),exclude:(tagStates.exclude||[]).filter(t=>t!==name)};saveTagFilterStates();
     for(const x of items){let changed=false;if((x.tags||[]).includes(name)){x.tags=x.tags.filter(t=>t!==name);changed=true}for(const c of x.characters||[]){if((c.tags||[]).includes(name)){c.tags=c.tags.filter(t=>t!==name);changed=true}}if(changed){x.updatedAt=Date.now();await put(SB,x)}}
     if(editingProfileTag===name)resetProfileForm();await refresh();
   });
@@ -899,7 +915,7 @@ function renderProfilePage(){
 
 /* 워크스페이스 탭 */
 document.querySelectorAll("#wsTabs .tab").forEach(t=>t.onclick=()=>{wsTab=t.dataset.ws;render()});
-$("clearTagFilters").onclick=()=>{tagStates={};render()};
+$("clearTagFilters").onclick=()=>{tagStates={include:[],exclude:[]};saveTagFilterStates();render()};
 $("tagFilterSearch").oninput=()=>renderTagGrid();
 $("addTopCat").onclick=async()=>{const n=$("newTopCat").value.trim();if(!n)return;await addCat(n,null);$("newTopCat").value=""};
 const TAG_KINDS=['male','female','artist','series','language','character','cast','tag','production'];
@@ -908,7 +924,8 @@ function saveVisibleTagKinds(set){localStorage.setItem('tagmark-visible-kinds',J
 function renderNewTagKindVisibility(){const vis=getVisibleTagKinds();document.querySelectorAll('#newTagKinds [data-reg-kind]').forEach(label=>{label.style.display=vis.has(label.dataset.regKind)?'inline-flex':'none'});document.querySelectorAll('#newTagKinds input[name="newTagKind"]').forEach(ch=>{if(!vis.has(ch.value.replace(':','')))ch.checked=false})}
 function renderTagVisibilityKinds(){const box=$("tagVisibilityKinds");if(!box)return;const vis=getVisibleTagKinds(),labels={male:'Male',female:'Female',artist:'Artist',series:'Series',language:'Language',character:'Character',cast:'Cast',tag:'Tag',production:'Production'};box.innerHTML=TAG_KINDS.map(k=>'<label><input type="checkbox" data-vis-kind="'+k+'" '+(vis.has(k)?'checked':'')+'> '+labels[k]+'</label>').join('');box.querySelectorAll('[data-vis-kind]').forEach(ch=>ch.onchange=()=>{const v=getVisibleTagKinds();if(ch.checked)v.add(ch.dataset.visKind);else v.delete(ch.dataset.visKind);saveVisibleTagKinds(v)});renderNewTagKindVisibility()}
 function selectedTagKinds(){return [...document.querySelectorAll('#newTagKinds input[type="checkbox"]:checked')].map(x=>x.value)}
-async function registerTagByKind(kind,raw){raw=String(raw||"").trim();if(!raw||!activeTopId)return null;const clean=raw.replace(/^(?:male|female|artist|series|language|character|cast|tag|production):\s*/i,"");const name="["+catPath(activeTopId)+"] "+kind+clean;if(!registeredTags.includes(name)){const row={name,kind};await put(ST,row);registeredTags.push(name);registeredTagMeta.push(row)}return name;}
+async function cleanupZeroUseTags(){for(const r of [...registeredTagMeta]){if(r?.everUsed&&getTagUsageCount(r.name)===0){await del(ST,r.name);registeredTags=registeredTags.filter(t=>t!==r.name);registeredTagMeta=registeredTagMeta.filter(x=>x.name!==r.name);tagStates={include:(tagStates.include||[]).filter(t=>t!==r.name),exclude:(tagStates.exclude||[]).filter(t=>t!==r.name)}}}saveTagFilterStates()}
+async function registerTagByKind(kind,raw){raw=String(raw||"").trim();if(!raw||!activeTopId)return null;const clean=raw.replace(/^(?:male|female|artist|series|language|character|cast|tag|production):\s*/i,"");const name="["+catPath(activeTopId)+"] "+kind+clean;if(!registeredTags.includes(name)){const row={name,kind,everUsed:false};await put(ST,row);registeredTags.push(name);registeredTagMeta.push(row)}return name;}
 $("addRegisteredTag").onclick=async()=>{const raw=$("newTagName").value.trim(),kinds=selectedTagKinds();if(!raw||!activeTopId||!kinds.length){alert("태그 이름과 태그 카테고리를 선택하세요.");return}for(const kind of kinds)await registerTagByKind(kind,raw);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));$("newTagName").value="";render()};
 let profileSeriesSelection="", profileTagSelections=[], editingProfileTag=null;
 function renderProfileSelections(){const sb=$("profileSeriesSelected"),tb=$("profileTagsSelected");sb.innerHTML=profileSeriesSelection?tagMarkup(profileSeriesSelection,true):"";tb.innerHTML=profileTagSelections.map(t=>tagMarkup(t,true)).join("");sb.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{profileSeriesSelection="";renderProfileSelections()});tb.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{profileTagSelections=profileTagSelections.filter(t=>t!==b.dataset.trm);renderProfileSelections()})}
@@ -935,7 +952,7 @@ async function saveProfile(){
   if(oldName!==tagName && registeredTags.includes(tagName)){alert('같은 이름의 프로필이 이미 있습니다.');return}
   const old=oldName?registeredTagMeta.find(r=>r.name===oldName):null;
   const gender=document.querySelector('input[name="profileGender"]:checked')?.value||'male';
-  const row={name:tagName,kind,profile:true,gender,topCategoryId:rootId(activeTopId),topCategoryPath:catPath(rootId(activeTopId)),series:profileSeriesSelection||'',profileTags:[...(profileSeriesSelection?[profileSeriesSelection]:[]),...profileTagSelections]};
+  const row={name:tagName,kind,profile:true,everUsed:true,gender,topCategoryId:rootId(activeTopId),topCategoryPath:catPath(rootId(activeTopId)),series:profileSeriesSelection||'',profileTags:[...(profileSeriesSelection?[profileSeriesSelection]:[]),...profileTagSelections]};
   if(old?.id)row.id=old.id;
   if(oldName && oldName!==tagName){await del(ST,oldName);registeredTags=registeredTags.map(t=>t===oldName?tagName:t);registeredTagMeta=registeredTagMeta.map(r=>r.name===oldName?row:r);
     for(const x of items){let changed=false;if((x.tags||[]).includes(oldName)){x.tags=x.tags.map(t=>t===oldName?tagName:t);changed=true}for(const c of x.characters||[]){if((c.tags||[]).includes(oldName)){c.tags=c.tags.map(t=>t===oldName?tagName:t);changed=true}}if(changed){x.updatedAt=Date.now();await put(SB,x)}}
@@ -1062,7 +1079,7 @@ function showTagSug(q){
 async function addTag(tag){
   tag=tag.trim();if(!tag)return;const storeName=activeTopId&&!tag.startsWith("[")?("["+catPath(activeTopId)+"] "+tag):tag;
   if(curTags.includes(storeName))return;curTags.push(storeName);
-  if(!registeredTags.includes(storeName)){await put(ST,{name:storeName});registeredTags.push(storeName);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));}renderSelTags();
+  if(!registeredTags.includes(storeName)){await put(ST,{name:storeName,everUsed:true});registeredTags.push(storeName);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));}renderSelTags();
 }
 function showCatSug(q){
   const box=$("catSuggest"),low=(q||"").toLowerCase(),ordered=[];
@@ -1093,7 +1110,7 @@ let suggestIdleTimer=0;function armSuggestIdle(){clearTimeout(suggestIdleTimer);
 document.addEventListener("pointerdown",e=>{if(!e.target.closest(".picker,.search-wrap,.char-tag-picker"))closeAllSuggests()});
 ["search","tagPickerInput","catPickerInput","bookmarkSeriesInput","bookmarkArtistInput","profileSeriesInput","profileTagsInput","bulkTagInput"].forEach(id=>{const el=$(id);if(!el)return;el.addEventListener("blur",()=>setTimeout(closeAllSuggests,120));el.addEventListener("input",armSuggestIdle);el.addEventListener("focus",()=>clearTimeout(suggestIdleTimer))});
 
-window.editItem=id=>showEdit(items.find(x=>x.id===id));
+window.editItem=id=>showEdit(items.find(x=>x.id===id));$("sort")?.addEventListener("change",renderResults);$("sortDesc")?.addEventListener("change",renderResults);$("search")?.addEventListener("input",renderResults);$("searchScope")?.addEventListener("change",renderResults);
 $("bulkSelectAll").onclick=()=>{getFiltered().forEach(x=>selectedIds.add(x.id));renderResults();updateBulkBar()};
 $("bulkClear").onclick=()=>{selectedIds.clear();renderResults();updateBulkBar()};
 $("bulkAddTag").onclick=openBulkTagModal;
@@ -1101,9 +1118,9 @@ $("bulkTagCancel").onclick=()=>$('bulkTagModal').classList.remove("open");
 $("bulkTagApply").onclick=applyBulkTag;
 $("bulkTagInput").oninput=e=>{showBulkTagSug(e.target.value);if(!e.target.value.trim())closeSuggest($("bulkTagSuggest"))};
 $("bulkTagInput").onfocus=e=>showBulkTagSug(e.target.value);
-$("bulkTagKind").onchange=()=>showBulkTagSug($("bulkTagInput").value);
-$("bulkPasteChars").onclick=bulkPasteCharacters;
-window.removeItem=async id=>{if(confirm("삭제할까요?")){await del(SB,id);await refresh()}};
+document.querySelectorAll('input[name="bulkTagKind"]').forEach(r=>r.onchange=()=>showBulkTagSug($("bulkTagInput").value));
+$("bulkPasteChars").onclick=bulkPasteCharacters;$("bulkCreateFolder").onclick=createBookmarkFolder;$("folderCancel").onclick=()=>$("folderModal").classList.remove("open");$("folderApply").onclick=applyBookmarkFolder;
+window.removeItem=async id=>{if(confirm("삭제할까요?")){const x=items.find(v=>v.id===id);const fid=x?.folderId;await del(SB,id);await touchFolder(fid);await cleanupZeroUseTags();await refresh()}};
 $("addBtn").onclick=()=>showEdit();
 $("cancelBtn").onclick=()=>$("editModal").classList.remove("open");
 $("saveBtn").onclick=async()=>{
@@ -1116,16 +1133,21 @@ $("saveBtn").onclick=async()=>{
   const chars=curChars.map(c=>({
     name:String(c.name||"").trim(),role:c.role||"character",gender:c.gender||"male",tags:[...new Set(c.tags||[])].sort((a,b)=>tagLabel(a).localeCompare(b,"ko"))
   }));
-    const now=Date.now(),old=editingId?items.find(x=>x.id===editingId):null,mt=document.querySelector('input[name="metaType"]:checked')?.value||"";
+    const now=Date.now(),old=editingId?items.find(x=>x.id===editingId):null,oldTagSet=new Set([...(old?.tags||[]),...(old?.characters||[]).flatMap(c=>c.tags||[])]),mt=document.querySelector('input[name="metaType"]:checked')?.value||"";
   if(mt==="pages" && !(parseInt($("metaPages").value,10)>0)){alert("페이지 수를 입력하세요.");return}
   if(mt==="duration" && getDur()==="00:00:00"){alert("재생시간을 입력하세요.");return}
   let categoryId=curCatId||activeTopId;
   // 반드시 현재 최상위 트리 안
   if(!descIds(activeTopId).has(categoryId))categoryId=activeTopId;
-  await put(SB,{id:editingId||uid(),url,title:$("title").value.trim()||url,categoryId,
-    tags:[...new Set([...curTags,...(bookmarkSeriesSelection?[bookmarkSeriesSelection]:[]),...(bookmarkArtistSelection?[bookmarkArtistSelection]:[])])].sort((a,b)=>tagLabel(a).localeCompare(b,"ko")),characters:chars,notes:$("notes").value.trim(),metaType:mt,
+  const saveId=editingId||uid();
+  for(const t of oldTagSet){const r=registeredTagMeta.find(r=>r.name===t);if(r)r.everUsed=true}
+  await put(SB,{id:saveId,url,title:$("title").value.trim()||url,categoryId,
+    folderId:old?.folderId||null,tags:[...new Set([...curTags,...(bookmarkSeriesSelection?[bookmarkSeriesSelection]:[]),...(bookmarkArtistSelection?[bookmarkArtistSelection]:[])])].sort((a,b)=>tagLabel(a).localeCompare(b,"ko")),characters:chars,notes:$("notes").value.trim(),metaType:mt,
     pages:mt==="pages"?(parseInt($("metaPages").value,10)||null):null,
     duration:mt==="duration"?getDur():null,createdAt:old?.createdAt||now,updatedAt:now});
+  for(const t of [...curTags,...(bookmarkSeriesSelection?[bookmarkSeriesSelection]:[]),...(bookmarkArtistSelection?[bookmarkArtistSelection]:[])]){const r=registeredTagMeta.find(r=>r.name===t);if(r){r.everUsed=true;await put(ST,r)}}
+  if(old?.folderId){const f=folders.find(v=>v.id===old.folderId);if(f){f.updatedAt=now;await put(SF,f)}}
+  await cleanupZeroUseTags()
   $("editModal").classList.remove("open");await refresh();
 };
 
@@ -1141,6 +1163,7 @@ async function importData(text,name){
   let data=[];
   if(/\.json$/i.test(name)){const j=JSON.parse(text);data=Array.isArray(j)?j:(j.bookmarks||[]);
     if(j.categories)for(const c of j.categories)if(!getCat(c.id)){await put(SC,c);categories.push(c)}
+    if(j.folders)for(const f of j.folders)if(!folders.some(v=>v.id===f.id)){await put(SF,f);folders.push(f)}
     if(j.registeredTags)for(const t of j.registeredTags){const row=typeof t==='string'?{name:t}:t;if(!row?.name)continue;await put(ST,row);if(!registeredTags.includes(row.name))registeredTags.push(row.name);const mi=registeredTagMeta.findIndex(r=>r.name===row.name);if(mi>=0)registeredTagMeta[mi]=row;else registeredTagMeta.push(row)}
   }else if(/\.html?$/i.test(name))data=parseHTML(text);else data=parseText(text);
   let added=0,dups=0;const now=Date.now(),urlMap=new Map(items.map(x=>[normalizeUrl(x.url),x]));
