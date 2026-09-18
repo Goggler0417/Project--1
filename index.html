@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Tagmark v2.4 — Supabase Sync</title>
+<title>Tagmark v2.19 — Supabase Sync</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 82.278% 30.98%);--character-both:hsl(270 82.278% 30.98%)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -17,11 +17,11 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .toolbar{display:flex;gap:8px;flex-wrap:wrap}
 .btn{border:1px solid var(--line);background:#fff;border-radius:11px;padding:10px 13px}
 .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}.btn.danger{color:var(--danger)}.btn.sm{padding:6px 10px;font-size:12px}
-.tabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--line);overflow-x:auto}
+.tabs{display:flex;gap:4px;margin:0;border-bottom:1px solid var(--line);overflow-x:auto;flex:0 0 auto;position:relative;z-index:50;background:var(--panel)}
 .tab{padding:10px 16px;border:0;background:0;border-radius:10px 10px 0 0;color:var(--muted);font-weight:600;white-space:nowrap}
 .tab.active{background:var(--panel);color:var(--text);border:1px solid var(--line);border-bottom-color:var(--panel);margin-bottom:-1px}
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:0 2px 10px #00000008}
-#view-main{display:flex;flex-direction:column;min-height:420px;max-height:calc(100vh - 20px);overflow:hidden}
+#view-main{display:flex;flex-direction:column;min-height:420px;height:calc(100vh - 180px);max-height:calc(100vh - 20px);overflow:hidden}
 #ws-main,#ws-tags,#ws-profiles{min-height:0;flex:1;overflow:hidden}
 #ws-main{display:flex;flex-direction:column}
 #ws-main .cards{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
@@ -66,7 +66,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .cat-item .name:hover{color:var(--accent)}
 .cat-sub{margin:4px 0 8px 12px;padding-left:12px;border-left:2px solid var(--line)}
 .cat-sub-item{display:flex;align-items:center;gap:6px;padding:6px 0}
-.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:16px;z-index:1000}.modal.open{display:flex}.dialog{position:relative;z-index:1001}
 .modal.open{display:flex}
 .dialog{background:#fff;border-radius:17px;width:min(680px,100%);max-height:92vh;overflow:auto;padding:18px}
 .dialog h2{margin:0 0 12px}.field{margin:10px 0}
@@ -87,7 +87,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .dur{display:flex;align-items:center;gap:6px}.dur input{width:4.2em;text-align:center;margin:0}
 .char-box{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:#fafbfe}
 .char-box .row input,.char-box .row select{margin:0;flex:1;min-width:70px}.char-basic{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}.char-gender{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:8px}.char-gender label{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;margin:0}.char-gender input{margin:0;width:auto}.char-tag-picker{min-width:0}.char-name-field{margin-bottom:8px}.char-name-field input{width:100%}
-.char-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:700;font-size:13px}
+.char-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-weight:700;font-size:13px}.char-head label{writing-mode:horizontal-tb;text-orientation:mixed;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}.char-head label input{writing-mode:horizontal-tb}
 .crumb{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px;font-size:14px}
 .crumb a,.crumb button.link{border:0;background:0;color:var(--accent);cursor:pointer;font:inherit;padding:0;text-decoration:none}
 .crumb a:hover,.crumb button.link:hover{text-decoration:underline}
@@ -100,12 +100,48 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .char-role{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:7px 0 10px}.char-role label{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;margin:0}.char-role input{margin:0;width:auto}
 .tag-folder{border:1px solid var(--line);border-radius:12px;background:#fff;margin:7px 0;overflow:hidden}.tag-folder>summary{padding:10px 12px;font-weight:700;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px}.tag-folder>summary::-webkit-details-marker{display:none}.tag-folder>summary:before{content:"›";font-size:18px;transition:transform .15s}.tag-folder[open]>summary:before{transform:rotate(90deg)}.tag-folder-body{padding:8px 10px 11px;border-top:1px solid var(--line)}
 .char-choice-panel{display:grid;grid-template-columns:auto 1fr;gap:9px 18px;margin:10px 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#fafbfe}.char-choice-panel legend{font-size:12px;color:var(--muted);padding:0 5px}.char-choice-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.char-choice-row label{display:inline-flex;align-items:center;gap:7px;min-width:0;white-space:nowrap;cursor:pointer;font-size:13px;margin:0}.char-choice-row input{margin:0;width:auto;flex:0 0 auto}.char-choice-label{font-size:13px;font-weight:700;color:var(--muted);min-width:42px}@media(max-width:620px){.char-choice-panel{grid-template-columns:1fr}.char-choice-row{gap:10px 16px}}
+
+/* v2.19 mobile/layout fixes */
+@media(max-width:760px){
+  .app{padding-left:8px;padding-right:8px;padding-bottom:12px}
+  header{padding:10px 2px 7px;gap:7px}
+  .logo{font-size:19px}.sub{font-size:10px}
+  header .toolbar{gap:5px}.toolbar .btn{padding:7px 8px;font-size:12px}
+  .sync-box{margin-bottom:6px;padding:6px 8px;gap:5px}
+  .sync-status{min-width:0;font-size:10px}.sync-user{font-size:10px}
+  .crumb{margin-bottom:6px;font-size:12px}
+  #view-main{height:calc(100vh - 135px);min-height:0;max-height:none;border-radius:12px}
+  #ws-tabs{min-height:0}
+  #ws-main .searchbar{padding:7px;gap:5px}
+  #ws-main .search{padding:9px;font-size:14px}
+  #ws-main .select{padding:8px;font-size:12px}
+  #ws-main .stats{padding:6px 9px;font-size:11px}
+  #ws-main .bulkbar{padding:5px 7px;gap:4px}
+  #ws-main .bulkbar .btn{padding:5px 7px;font-size:10px}
+  #ws-main .bulkbar .count{font-size:10px}
+  #ws-main .cards{padding:0 7px 7px;gap:6px}
+  #ws-main .card{padding:10px}
+  .tabs{gap:1px}
+  .tab{padding:7px 10px;font-size:12px}
+  .side{padding:9px}
+  .side-title{margin-bottom:7px}
+  .side-search{padding:8px;font-size:13px}
+}
+@media(max-width:430px){
+  header .toolbar .btn{font-size:11px;padding:6px 6px}
+  .sync-box .btn{font-size:10px;padding:5px 6px}
+  #ws-main .searchbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center}
+  #ws-main .search-wrap{grid-column:1 / -1}
+  #ws-main #subCatFilter{grid-column:1 / -1;width:100%}
+  #ws-main .bulkbar{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap}
+  #ws-main .bulkbar .count{flex:0 0 auto;margin-right:2px}
+}
 </style>
 </head>
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.4 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.19 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -1050,6 +1086,9 @@ $("catPickerInput").onfocus=e=>showCatSug(e.target.value);
 document.querySelectorAll('input[name="metaType"]').forEach(r=>r.onchange=()=>{const v=document.querySelector('input[name="metaType"]:checked')?.value||"";$("metaPagesField").classList.toggle("hidden",v!=="pages");$("metaDurationField").classList.toggle("hidden",v!=="duration")});
 function closeSuggest(box){if(box)box.classList.remove("open")}
 function closeAllSuggests(){["tagSuggest","catSuggest","profileSeriesSuggest","profileTagsSuggest","searchSuggest","bulkTagSuggest"].forEach(id=>closeSuggest($(id)));document.querySelectorAll(".char-tag-suggest").forEach(closeSuggest)}
+document.addEventListener("pointerdown",e=>{const inside=e.target.closest(".suggest,.search-suggest,.char-tag-suggest,.picker,.search-wrap");if(!inside)closeAllSuggests();});
+document.addEventListener("focusin",e=>{if(e.target.matches("input,textarea,select")&&!e.target.closest(".suggest,.search-suggest,.char-tag-suggest")){document.querySelectorAll(".suggest.open,.search-suggest.open,.char-tag-suggest.open").forEach(closeSuggest)}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeAllSuggests()});
 let suggestIdleTimer=0;function armSuggestIdle(){clearTimeout(suggestIdleTimer);suggestIdleTimer=setTimeout(closeAllSuggests,1400)}
 document.addEventListener("pointerdown",e=>{if(!e.target.closest(".picker,.search-wrap,.char-tag-picker"))closeAllSuggests()});
 ["search","tagPickerInput","catPickerInput","bookmarkSeriesInput","bookmarkArtistInput","profileSeriesInput","profileTagsInput","bulkTagInput"].forEach(id=>{const el=$(id);if(!el)return;el.addEventListener("blur",()=>setTimeout(closeAllSuggests,120));el.addEventListener("input",armSuggestIdle);el.addEventListener("focus",()=>clearTimeout(suggestIdleTimer))});
@@ -1170,7 +1209,7 @@ function renderSearchSuggest(){
 }
 $("search").oninput=()=>{renderSearchSuggest();render()};$("search").onfocus=renderSearchSuggest;$("searchScope").onchange=render;$("sort").onchange=render;
 $("subCatFilter").onchange=render;
-function fitMainView(){const v=$("view-main");if(!v||v.classList.contains("hidden"))return;const top=v.getBoundingClientRect().top;v.style.height=Math.max(420,window.innerHeight-top-12)+"px"}
+function fitMainView(){const v=$("view-main");if(!v||v.classList.contains("hidden"))return;const top=v.getBoundingClientRect().top;const h=Math.max(window.innerWidth<=760?0:420,window.innerHeight-top-8);v.style.height=h+"px"}
 window.addEventListener("resize",fitMainView);
 setTimeout(fitMainView,0);
 setSyncStatus("Supabase 초기화 중…","busy");
