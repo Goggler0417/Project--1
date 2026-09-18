@@ -747,7 +747,7 @@ function profileMeta(tag){
   // 이전 버전에서 저장된 프로필은 series 필드가 없을 수 있으므로 profileTags에서 복원
   let series=row.series||saved.find(t=>/^series:/i.test(tagLabel(t)))||"";
   const prereg=saved.filter(t=>!/^series:/i.test(tagLabel(t)));
-  return {row,series,prereg};
+  return {row,series,prereg,gender:row.gender||"male"};
 }
 function profileDisplayName(t){return tagLabel(t).replace(/^(?:character|cast):\s*/i,"").trim();}
 function renderProfilePage(){
