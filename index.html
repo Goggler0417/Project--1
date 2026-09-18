@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Tagmark v2.4 — Supabase Sync</title>
 <style>
-:root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 43% 48%);--character-both:hsl(270 82.278% 30.98%)}
+:root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 82.278% 30.98%);--character-both:hsl(270 82.278% 30.98%)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 button,input,textarea,select{font:inherit}button{cursor:pointer}
 .app{max-width:1180px;margin:auto;padding:env(safe-area-inset-top) 16px 30px}
@@ -29,6 +29,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 .select{padding:11px;border:1px solid var(--line);border-radius:11px;background:#fff;margin:0;width:auto}
 .stats{padding:10px 14px;color:var(--muted);font-size:13px}
 .cards{padding:0 12px 12px;display:grid;gap:9px}
+.bulkbar{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--line);background:#fafbfe}.bulkbar .count{font-size:12px;color:var(--muted);font-weight:700;margin-right:auto}.card-select{width:auto!important;margin:0 7px 0 0;vertical-align:middle}.card-title-row{display:flex;align-items:flex-start;gap:4px}.card-title-row .card-title{flex:1}
 .card{border:1px solid var(--line);border-radius:13px;padding:13px}
 .card-title{font-weight:700;overflow-wrap:anywhere}
 .url-row{margin:4px 0 9px}.url{color:var(--accent);font-size:13px;overflow-wrap:anywhere;margin-top:6px}
@@ -148,6 +149,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
       <select class="select" id="subCatFilter"><option value="">하위 전체</option></select>
     </div>
     <div class="stats" id="stats"></div>
+    <div class="bulkbar hidden" id="bulkBar"><span class="count" id="bulkCount">0개 선택</span><button class="btn sm" id="bulkSelectAll">현재 목록 전체 선택</button><button class="btn sm" id="bulkClear">선택 해제</button><button class="btn sm" id="bulkLanguage">Language 일괄 추가</button><button class="btn sm" id="bulkSeries">Series 일괄 추가</button><button class="btn sm" id="bulkTag">Tag 일괄 추가</button><button class="btn sm" id="bulkPasteChars">등장인물 붙여넣기</button></div>
     <div class="cards" id="cards"></div>
   </div>
   <!-- 워크스페이스: 태그 관리 -->
@@ -261,6 +263,7 @@ let tagStates={}, activeTopId=null, includeDesc=true, expanded=new Set();
 let editingId=null, curTags=[], curCatId=null, curChars=[];
 let wsTab="main"; // main | tags | profiles
 let characterPageFilter="";
+let selectedIds=new Set(),characterClipboard=null;
 const $=id=>document.getElementById(id);
 const uid=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random().toString(36).slice(2);
 
@@ -695,6 +698,7 @@ async function addCat(name,parentId=null){
 
 /** 메인 목록 */ function renderResults(){
   const list=getFiltered(), sort=$("sort").value;
+  const visibleIds=new Set(list.map(x=>x.id));selectedIds=new Set([...selectedIds].filter(id=>visibleIds.has(id)));
   list.sort((a,b)=>sort==="title"?(a.title||"").localeCompare(b.title||"","ko"):sort==="domain"?domain(a.url).localeCompare(domain(b.url)):b.updatedAt-a.updatedAt);
   $("stats").textContent=list.length+"개 표시 · 범위 내 "+items.filter(x=>x.categoryId&&scopeIds().has(x.categoryId)).length+"개";
   $("cards").innerHTML=list.length?list.map(card).join(""):'<div class="empty">북마크가 없습니다.</div>';
@@ -715,13 +719,52 @@ function card(x){
       (deps.length?'<div class="character-details" data-char-details="'+i+'">'+deps.map(t=>'<button type="button" class="chip '+tagColor(t)+'" data-char-tag="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("")+"</div>":"")+"</div>";
   }).join("");
   let meta="";if(x.metaType==="pages"&&x.pages)meta='<div class="meta">'+x.pages+' 페이지</div>';if(x.metaType==="duration"&&x.duration)meta='<div class="meta">'+esc(x.duration)+'</div>';
-  return '<article class="card"><div class="card-title">'+esc(x.title||x.url)+'</div><div class="main-info">'+mainInfo+'</div>'+meta+chars+'<div class="chips main-general-tags">'+cat+tags+'</div>'+(x.notes?'<div class="notes">'+esc(x.notes)+'</div>':"")+'<div class="actions"><button type="button" class="btn" data-open="'+esc(x.url)+'">열기</button><button type="button" class="btn" data-edit="'+esc(x.id)+'">수정</button><button type="button" class="btn danger" data-rm="'+esc(x.id)+'">삭제</button></div></article>';
+  return '<article class="card"><div class="card-title-row"><input type="checkbox" class="card-select" data-select="'+esc(x.id)+'" '+(selectedIds.has(x.id)?"checked":"")+'><div class="card-title">'+esc(x.title||x.url)+'</div></div><div class="main-info">'+mainInfo+'</div>'+meta+chars+'<div class="chips main-general-tags">'+cat+tags+'</div>'+(x.notes?'<div class="notes">'+esc(x.notes)+'</div>':"")+'<div class="actions"><button type="button" class="btn" data-open="'+esc(x.url)+'">열기</button><button type="button" class="btn" data-edit="'+esc(x.id)+'">수정</button><button type="button" class="btn" data-clone="'+esc(x.id)+'">복제</button><button type="button" class="btn" data-copychars="'+esc(x.id)+'">등장인물 복사</button><button type="button" class="btn danger" data-rm="'+esc(x.id)+'">삭제</button></div></article>';
+}
+
+async function cloneBookmark(id){
+  const x=items.find(v=>v.id===id);if(!x)return;
+  const now=Date.now(),base=(x.title||x.url).replace(/(?: - 의 사본(?: \d+)?)$/i,"");
+  let title=base+" - 의 사본",n=2;
+  while(items.some(v=>v.title===title)){title=base+" - 의 사본 "+n++;}
+  const copy=structuredClone(x);copy.id=uid();copy.title=title;copy.createdAt=now;copy.updatedAt=now;
+  await put(SB,copy);selectedIds.clear();await refresh();
+}
+function copyCharacters(id){
+  const x=items.find(v=>v.id===id);if(!x)return;
+  characterClipboard=structuredClone(x.characters||[]);
+  alert((characterClipboard.length||0)+"명의 등장인물을 복사했습니다. 붙여넣을 북마크를 선택한 뒤 '등장인물 붙여넣기'를 누르세요.");
+}
+function updateBulkBar(){
+  const bar=$("bulkBar");if(!bar)return;
+  bar.classList.toggle("hidden",selectedIds.size===0);
+  $("bulkCount").textContent=selectedIds.size+"개 선택";
+}
+async function bulkAddTag(kind){
+  if(!selectedIds.size)return;
+  const raw=prompt(kind+" 태그를 입력하세요. 예: "+kind+":English");if(!raw?.trim())return;
+  let v=raw.trim();if(!new RegExp("^"+kind+":","i").test(v))v=kind+":"+v;
+  const storeName=activeTopId&&!v.startsWith("[")?("["+catPath(activeTopId)+"] "+v):v;
+  if(!registeredTags.includes(storeName)){await put(ST,{name:storeName,kind:kind+":"});registeredTags.push(storeName);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));}
+  const now=Date.now();
+  for(const id of selectedIds){const x=items.find(v=>v.id===id);if(!x)continue;x.tags=[...new Set([...(x.tags||[]),storeName])].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));x.updatedAt=now;await put(SB,x)}
+  selectedIds.clear();await refresh();
+}
+async function bulkPasteCharacters(){
+  if(!selectedIds.size){alert("붙여넣을 북마크를 선택하세요.");return}
+  if(!characterClipboard){alert("먼저 '등장인물 복사'를 눌러 복사할 등장인물을 정하세요.");return}
+  const now=Date.now();
+  for(const id of selectedIds){const x=items.find(v=>v.id===id);if(!x)continue;const existing=new Set((x.characters||[]).map(c=>JSON.stringify([c.name,c.role,c.gender,c.tags||[]])));for(const c of characterClipboard){const key=JSON.stringify([c.name,c.role,c.gender,c.tags||[]]);if(!existing.has(key)){x.characters=[...(x.characters||[]),structuredClone(c)];existing.add(key)}}x.updatedAt=now;await put(SB,x)}
+  selectedIds.clear();await refresh();
 }
 
 function bindCards(){
+  $("cards").querySelectorAll("[data-select]").forEach(b=>b.onchange=()=>{const id=b.dataset.select;if(b.checked)selectedIds.add(id);else selectedIds.delete(id);updateBulkBar()});
   $("cards").querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>window.open(b.getAttribute("data-open"),"_blank"));
   $("cards").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editItem(b.getAttribute("data-edit")));
   $("cards").querySelectorAll("[data-rm]").forEach(b=>b.onclick=()=>removeItem(b.getAttribute("data-rm")));
+  $("cards").querySelectorAll("[data-clone]").forEach(b=>b.onclick=()=>cloneBookmark(b.getAttribute("data-clone")));
+  $("cards").querySelectorAll("[data-copychars]").forEach(b=>b.onclick=()=>copyCharacters(b.getAttribute("data-copychars")));
   $("cards").querySelectorAll("[data-char-toggle]").forEach(b=>b.onclick=()=>{const i=b.dataset.charToggle;const d=b.closest(".card").querySelector('[data-char-details="'+i+'"]');if(d)d.classList.toggle("open")});
   $("cards").querySelectorAll("[data-char-tag]").forEach(b=>b.onclick=()=>{tagStates[b.dataset.charTag]="include";wsTab="main";render()});
 }
@@ -930,6 +973,12 @@ document.querySelectorAll('input[name="metaType"]').forEach(r=>r.onchange=()=>{c
 document.addEventListener("click",e=>{if(!e.target.closest(".picker")){["tagSuggest","catSuggest","profileSeriesSuggest","profileTagsSuggest","searchSuggest"].forEach(id=>$(id)?.classList.remove("open"))}});
 
 window.editItem=id=>showEdit(items.find(x=>x.id===id));
+$("bulkSelectAll").onclick=()=>{getFiltered().forEach(x=>selectedIds.add(x.id));renderResults();updateBulkBar()};
+$("bulkClear").onclick=()=>{selectedIds.clear();renderResults();updateBulkBar()};
+$("bulkLanguage").onclick=()=>bulkAddTag("language");
+$("bulkSeries").onclick=()=>bulkAddTag("series");
+$("bulkTag").onclick=()=>bulkAddTag("tag");
+$("bulkPasteChars").onclick=bulkPasteCharacters;
 window.removeItem=async id=>{if(confirm("삭제할까요?")){await del(SB,id);await refresh()}};
 $("addBtn").onclick=()=>showEdit();
 $("cancelBtn").onclick=()=>$("editModal").classList.remove("open");
