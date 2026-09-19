@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Tagmark v2.33 — Supabase Sync</title>
+<title>Tagmark v2.34 — Supabase Sync</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 82.278% 30.98%);--character-both:hsl(270 82.278% 30.98%)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -145,7 +145,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.33 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.34 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -1078,17 +1078,25 @@ function renderChars(){
     const deps=(c.tags||[]).filter(t=>!isIdentityTag(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));
     return '<div class="char-box" data-ci="'+i+'"><div class="char-head"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-char-select="'+i+'">등장인물 '+(i+1)+'</label><button type="button" class="btn sm danger" data-chdel="'+i+'">삭제</button></div><fieldset class="char-choice-panel"><legend>Category:</legend><div class="char-choice-row"><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="character" '+(c.role==="character"?"checked":"")+'> character</label><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="cast" '+(c.role==="cast"?"checked":"")+'> cast</label></div><div class="char-choice-row"><span class="char-choice-label">성별:</span><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="male" '+(c.gender==="male"?"checked":"")+'> 남성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="female" '+(c.gender==="female"?"checked":"")+'> 여성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="both" '+(c.gender==="both"?"checked":"")+'> 양성</label></div></fieldset><div class="char-tag-picker"><input data-charname="'+i+'" placeholder="이름 또는 기존 프로필 검색" autocomplete="off" value="'+esc(label)+'"><div class="char-tag-suggest" data-charsuggest="'+i+'"></div></div><div class="char-tag-picker" style="margin-top:8px"><input data-dtag="'+i+'" placeholder="등장인물에 적용할 태그 검색..." autocomplete="off"><div class="char-tag-suggest" data-dtagsuggest="'+i+'"></div></div><div class="selected" data-ctags="'+i+'">'+deps.map(t=>tagMarkup(t,true)).join("")+'</div></div>';
   }).join("");
-  box.querySelectorAll("[data-charname]").forEach(inp=>{
+    box.querySelectorAll("[data-charname]").forEach(inp=>{
     const i=+inp.dataset.charname;
-    inp.oninput=()=>{curChars[i].name=inp.value;showCharacterNameSug(i,inp.value)};
-    inp.onfocus=()=>{if(inp.value.trim())showCharacterNameSug(i,inp.value)};
-    inp.onblur=()=>setTimeout(()=>closeSuggest(inp.closest(".char-tag-picker")?.querySelector(".char-tag-suggest")),120);
+    const sug=()=>{const s=document.querySelector('[data-charsuggest="'+i+'"]');if(s)s._anchor=inp;showCharacterNameSug(i,inp.value)};
+    inp.oninput=()=>{curChars[i].name=inp.value;sug()};
+    inp.onfocus=()=>{sug()};
+    inp.onblur=()=>setTimeout(()=>{const s=document.querySelector('[data-charsuggest="'+i+'"]');closeSuggest(s)},150);
     inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commitPlainCharacterName(i,inp.value)}};
   });
   box.querySelectorAll("[data-role]").forEach(r=>r.onchange=()=>{const i=+r.dataset.role;curChars[i].role=r.value;const old=(curChars[i].tags||[]).find(t=>isIdentityTag(t));if(old){const v=tagLabel(old).replace(/^(?:character|cast):\s*/i,"");const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";curChars[i].tags=curChars[i].tags.filter(t=>t!==old);curChars[i].tags.unshift(scope+r.value+":"+v)}renderChars();renderSelTags()});
   box.querySelectorAll("[data-gender]").forEach(r=>r.onchange=()=>{const i=+r.dataset.gender;curChars[i].gender=r.value;renderChars()});
   box.querySelectorAll("[data-chdel]").forEach(b=>b.onclick=()=>{curChars.splice(+b.dataset.chdel,1);renderChars()});
-  box.querySelectorAll("[data-dtag]").forEach(inp=>{inp.onfocus=()=>{if(inp.value.trim())showDependentTagSug(+inp.dataset.dtag,inp.value)};inp.oninput=()=>showDependentTagSug(+inp.dataset.dtag,inp.value);inp.onblur=()=>setTimeout(()=>closeSuggest(inp.closest(".char-tag-picker")?.querySelector(".char-tag-suggest")),120);inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addDependentTag(+inp.dataset.dtag,inp.value,true)}}});
+  box.querySelectorAll("[data-dtag]").forEach(inp=>{
+    const i=+inp.dataset.dtag;
+    const sug=()=>{const s=document.querySelector('[data-dtagsuggest="'+i+'"]');if(s)s._anchor=inp;showDependentTagSug(i,inp.value)};
+    inp.oninput=()=>sug();
+    inp.onfocus=()=>sug();
+    inp.onblur=()=>setTimeout(()=>{const s=document.querySelector('[data-dtagsuggest="'+i+'"]');closeSuggest(s)},150);
+    inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addDependentTag(i,inp.value,true);inp.value="";closeSuggest(document.querySelector('[data-dtagsuggest="'+i+'"]'))}};
+  });
   box.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{const i=+b.closest(".char-box").dataset.ci;curChars[i].tags=(curChars[i].tags||[]).filter(t=>t!==b.dataset.trm);renderChars();renderSelTags()});
 }
 function showCharacterNameSug(i,q){
@@ -1113,10 +1121,11 @@ function showCharacterNameSug(i,q){
   box.innerHTML=html;
   box.classList.toggle("open",!!html);
   if(box.classList.contains("open")){
-    const anc=box.closest(".char-tag-picker")?.querySelector("input")||box.previousElementSibling;
+    const anc=box._anchor||document.querySelector('[data-charname="'+i+'"]');
     placeFloatingSuggest(box,anc);
+    requestAnimationFrame(()=>placeFloatingSuggest(box,anc));
   }else{
-    box.style.left="";box.style.top="";box.style.width="";
+    box._anchor=null;box.style.left="";box.style.top="";box.style.width="";
   }
   box.querySelectorAll("[data-profile-pick]").forEach(b=>b.onclick=()=>{
     selectCharacterProfile(i,b.dataset.profilePick);
@@ -1151,9 +1160,9 @@ function commitPlainCharacterName(i,value){
   curChars[i].name=name;curChars[i].tags=(curChars[i].tags||[]).filter(t=>!isIdentityTag(t));
   renderChars();renderSelTags();
 }
-function showCharTagSug(i,q){const box=document.querySelector('[data-ctagsuggest="'+i+'"]');if(!box)return;const role=curChars[i]?.role||"character";const low=(q||"").replace(/^(?:character|cast):\s*/i,"").trim().toLowerCase();const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const profiles=profileRows().filter(r=>r.name.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(r.name))&&(!low||tagLabel(r.name).slice(tagLabel(r.name).indexOf(":")+1).trim().toLowerCase().includes(low)));const tags=registeredTags.filter(t=>t.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(t))&&!profileForTag(t)&&(!low||tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase().includes(low)));const cand=[...profiles.map(r=>r.name),...tags].filter((v,i,a)=>a.indexOf(v)===i).filter(t=>!(curChars[i].tags||[]).includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<button type="button" data-ctpick="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("");if(low&&!cand.some(t=>tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase()===low))box.innerHTML+='<button type="button" class="new-char-tag" data-ctnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);const _anc=box.closest(".char-tag-picker")?.querySelector("input")||box.previousElementSibling;if(box.classList.contains("open"))placeFloatingSuggest(box,_anc);box.querySelectorAll("[data-ctpick]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctpick);box.classList.remove("open")});box.querySelectorAll("[data-ctnew]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctnew,true);box.classList.remove("open")});}
+function showCharTagSug(i,q){const box=document.querySelector('[data-ctagsuggest="'+i+'"]');if(!box)return;const role=curChars[i]?.role||"character";const low=(q||"").replace(/^(?:character|cast):\s*/i,"").trim().toLowerCase();const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const profiles=profileRows().filter(r=>r.name.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(r.name))&&(!low||tagLabel(r.name).slice(tagLabel(r.name).indexOf(":")+1).trim().toLowerCase().includes(low)));const tags=registeredTags.filter(t=>t.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(t))&&!profileForTag(t)&&(!low||tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase().includes(low)));const cand=[...profiles.map(r=>r.name),...tags].filter((v,i,a)=>a.indexOf(v)===i).filter(t=>!(curChars[i].tags||[]).includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<button type="button" data-ctpick="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("");if(low&&!cand.some(t=>tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase()===low))box.innerHTML+='<button type="button" class="new-char-tag" data-ctnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);if(box.classList.contains("open")){const anc=box._anchor||box.closest(".char-tag-picker")?.querySelector("input");placeFloatingSuggest(box,anc);requestAnimationFrame(()=>placeFloatingSuggest(box,anc))}else{box._anchor=null}box.querySelectorAll("[data-ctpick]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctpick);box.classList.remove("open")});box.querySelectorAll("[data-ctnew]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctnew,true);box.classList.remove("open")});}
 function genderTagAllowed(tag,gender){const k=tagKindOf(tag);return k==="tag"||(gender==="both"?(k==="male"||k==="female"):k===gender)}
-function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase(),gender=curChars[i]?.gender||"male";const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)&&genderTagAllowed(t,gender)).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||tagLabel(t).toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")).slice(0,15).map(tagLabel);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);const _anc=box.closest(".char-tag-picker")?.querySelector("input")||box.previousElementSibling;if(box.classList.contains("open"))placeFloatingSuggest(box,_anc);box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
+function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase(),gender=curChars[i]?.gender||"male";const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)&&genderTagAllowed(t,gender)).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||tagLabel(t).toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")).slice(0,15).map(tagLabel);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);if(box.classList.contains("open")){const anc=box._anchor||box.closest(".char-tag-picker")?.querySelector("input");placeFloatingSuggest(box,anc);requestAnimationFrame(()=>placeFloatingSuggest(box,anc))}else{box._anchor=null}box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
 async function addDependentTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const m=raw.match(/^(male|female|series|artist|tag):\s*(.*)$/i);let store;if(m){store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+m[1].toLowerCase()+":"+m[2].trim()}else{store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+"tag:"+raw}
   if(/^series:/i.test(tagLabel(store))){bookmarkSeriesSelection=store;renderBookmarkSpecialSelections();return}
   if(/^artist:/i.test(tagLabel(store))){bookmarkArtistSelection=store;renderBookmarkSpecialSelections();return}
@@ -1249,23 +1258,28 @@ $("catPickerInput").onfocus=e=>showCatSug(e.target.value);
 document.querySelectorAll('input[name="metaType"]').forEach(r=>r.onchange=()=>{const v=document.querySelector('input[name="metaType"]:checked')?.value||"";$("metaPagesField").classList.toggle("hidden",v!=="pages");$("metaDurationField").classList.toggle("hidden",v!=="duration")});
 
 /** 입력칸 바로 아래에 fixed로 붙여 모달/형제에 가리지 않게 */ function placeFloatingSuggest(box, anchor){
-  if(!box||!anchor)return;
-  const r=anchor.getBoundingClientRect();
-  const vw=window.innerWidth, vh=window.innerHeight;
-  const width=Math.max(r.width, 180);
-  let left=r.left, top=r.bottom+4;
-  if(left+width>vw-8)left=Math.max(8, vw-width-8);
+  if(!box)return;
+  if(anchor)box._anchor=anchor;
+  const el=box._anchor;
+  if(!el)return;
+  const r=el.getBoundingClientRect();
+  const width=Math.max(r.width,160);
+  // 항상 입력칸 바로 아래 (위로 올리지 않음)
+  let left=r.left;
+  if(left+width>window.innerWidth-8)left=Math.max(8,window.innerWidth-width-8);
   if(left<8)left=8;
-  // 아래로 공간 부족하면 위쪽으로
-  const est=Math.min(240, vh*0.4);
-  if(top+est>vh-8 && r.top>est+8) top=r.top-est-4;
+  const top=r.bottom+4;
+  const maxH=Math.min(240,Math.max(80,window.innerHeight-top-12));
+  box.style.position="fixed";
   box.style.left=left+"px";
   box.style.top=top+"px";
   box.style.width=width+"px";
-  box.style.maxHeight=Math.min(240, Math.max(120, vh-top-12))+"px";
+  box.style.maxHeight=maxH+"px";
+  box.style.right="auto";
+  box.style.bottom="auto";
+  box.style.zIndex="10050";
 }
-
-(function(){const repos=()=>{document.querySelectorAll(".char-tag-suggest.open").forEach(box=>{const anc=box.closest(".char-tag-picker")?.querySelector("input")||box.previousElementSibling;placeFloatingSuggest(box,anc)})};window.addEventListener("resize",repos);document.addEventListener("scroll",repos,true);})();
+(function(){const repos=()=>{document.querySelectorAll(".char-tag-suggest.open").forEach(box=>{if(box._anchor)placeFloatingSuggest(box)})};window.addEventListener("resize",repos);document.addEventListener("scroll",repos,true);})();
 function closeSuggest(box){if(box)box.classList.remove("open")}
 function closeAllSuggests(){["tagSuggest","catSuggest","profileSeriesSuggest","profileTagsSuggest","searchSuggest","bulkTagSuggest","folderArtistSuggest","folderSeriesSuggest"].forEach(id=>closeSuggest($(id)));document.querySelectorAll(".char-tag-suggest").forEach(closeSuggest)}
 document.addEventListener("pointerdown",e=>{const inside=e.target.closest(".suggest,.search-suggest,.char-tag-suggest,.picker,.search-wrap");if(!inside)closeAllSuggests();});
