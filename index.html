@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Tagmark v2.36 — Supabase Sync</title>
+<title>Tagmark v2.38 — Supabase Sync</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 82.278% 30.98%);--character-both:hsl(270 82.278% 30.98%)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -145,7 +145,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.36 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.38 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -371,6 +371,7 @@ async function replaceLocalFromCloud(data){
     for(const r of oldT)await del(ST,r.name,{skipSync:true});
     for(const r of oldC)await del(SC,r.id,{skipSync:true});
     for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
+    for(const r of (data.folders||[]))if(r?.id)await put(SF,r,{skipSync:true});
     for(const r0 of (data.registeredTags||[])){
   const tagRecord=typeof r0==="string"?{name:r0}:r0;
   if(tagRecord?.name)await put(ST,tagRecord,{skipSync:true});
@@ -650,7 +651,11 @@ const resolvePath=(s,under)=>!s?.trim()?under||null:ensurePath(s.split(/[/＞>]/
 
 /* 로드 */
 async function refresh(){
-  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);folders=await rawAll(SF);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;await ensureTagIds(registeredTags);loadTagFilterStates();categories=await all(SC);
+  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);folders=await rawAll(SF);
+  {const have=new Set(folders.map(f=>f.id));const missing=new Map();
+  for(const x of items){if(x.folderId&&!have.has(x.folderId)&&!missing.has(x.folderId))missing.set(x.folderId,{id:x.folderId,title:"(복구된 폴더)",artist:"",series:"",createdAt:x.createdAt||Date.now(),updatedAt:x.updatedAt||Date.now()})}
+  for(const f of missing.values()){await put(SF,f,{skipSync:true});folders.push(f)}}
+  const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;await ensureTagIds(registeredTags);loadTagFilterStates();categories=await all(SC);await ensureCharacterProfiles();
   const legacy=raw.filter(r=>r?.id&&!r.i);for(const x of items)if(legacy.some(r=>r.id===x.id))await put(SB,x,{skipSync:true});
   for(const row of registeredTagMeta){if(row?.profile&&!row.topCategoryId){const rid=profileTopCategoryId(row);if(rid){row.topCategoryId=rid;row.topCategoryPath=catPath(rid);await put(ST,row)}}}
   for(const x of items){if(x.category&&!x.categoryId){const id=await resolvePath(x.category,null);if(id){x.categoryId=id;delete x.category;await put(SB,x)}}}
@@ -777,17 +782,22 @@ function renderResults(){
   // handled by getFiltered(); matching a folder title/metadata is additive.
   // 검색/태그 필터가 있으면: 폴더 메타가 검색어에 맞거나, 매칭된 멤버가 있을 때만 표시
   const matchedIds=new Set(matched.map(x=>x.id));
+  const scope=scopeIds(); // 현재 최상위 카테고리 범위
   for(const f of folders){
-    const allChildren=items.filter(x=>x.folderId===f.id);
+    // 이 워크스페이스에 속한 멤버만
+    let allChildren=items.filter(x=>x.folderId===f.id&&(!scope||(x.categoryId&&scope.has(x.categoryId))));
+    if(!allChildren.length && !(queryText&&[f.title,f.artist,f.series].filter(Boolean).join(" ").toLowerCase().includes(queryText))){
+      // 멤버가 다른 카테고리만 있으면 스킵 (검색어로 폴더명 매칭 시 예외 없음 — 워크스페이스 외 숨김)
+      continue;
+    }
     const hay=[f.title,f.artist,f.series].filter(Boolean).join(" ").toLowerCase();
     const folderTextMatch=!!(queryText && hay.includes(queryText));
     const membersMatched=allChildren.filter(x=>matchedIds.has(x.id));
     const memberMatch=membersMatched.length>0;
-    // 태그 include/exclude만 켠 경우 folderTextMatch는 false → 멤버 매칭 필수
     const includeFolder=!hasQuery || folderTextMatch || memberMatch;
     if(!includeFolder)continue;
-    // 필터 중이면 매칭된 멤버만, 폴더명만 맞은 경우엔 전체 멤버 유지
     let children=(!hasQuery || (folderTextMatch && !memberMatch))?allChildren:membersMatched;
+    // 필터 없을 때도 빈 폴더는 표시 (멤버 0)
     children=[...children].sort((a,b)=>{
       const c=String(a.title||"").localeCompare(String(b.title||""),"ko");
       return desc?-c:c;
@@ -799,8 +809,10 @@ function renderResults(){
   for(const arr of grouped.values())for(const x of arr)folderMemberIds.add(x.id);
 
   for(const x of matched){
+    // 폴더에 묶여 표시 중이면 단독 카드 생략
     if(x.folderId&&folderMemberIds.has(x.id))continue;
-    if(!x.folderId)entities.push({type:"bookmark",item:x});
+    // 폴더 레코드가 없어도 매칭된 북마크는 반드시 표시
+    entities.push({type:"bookmark",item:x});
   }
   for(const [id,arr] of grouped){
     const f=folders.find(v=>v.id===id);
@@ -978,7 +990,49 @@ function profileTopCategoryId(row){
   if(m){const path=m[1];const c=categories.find(x=>catPath(x.id)===path);return c?rootId(c.id):null;}
   return null;
 }
-function profileRows(){return registeredTagMeta.filter(r=>r&&r.profile&&/^(?:character|cast):$/i.test(String(r.kind||"")));}
+
+/** character/cast 태그를 프로필 메타로 복구 */ async function ensureCharacterProfiles(){
+  const used=new Set();
+  for(const x of items){
+    for(const c of(x.characters||[])){
+      for(const tg of(c.tags||[]))if(isIdentityTag(tg))used.add(tg);
+    }
+  }
+  const isCharCast=name=>/^(?:character|cast):/i.test(tagLabel(name));
+  const kindOf=name=>{
+    const lab=tagLabel(name);
+    return /^cast:/i.test(lab)?"cast:":"character:";
+  };
+  const upsert=async(name,extra={})=>{
+    let row=registeredTagMeta.find(r=>r.name===name);
+    if(!row){
+      row={name,kind:kindOf(name),everUsed:true,profile:true,gender:"male",profileTags:[],series:"",...extra};
+      registeredTagMeta.push(row);
+      if(!registeredTags.includes(name))registeredTags.push(name);
+      await put(ST,row,{skipSync:true});
+      return row;
+    }
+    let changed=false;
+    if(!row.profile){row.profile=true;changed=true}
+    if(!row.kind||!/^(?:character|cast):$/i.test(String(row.kind))){row.kind=kindOf(name);changed=true}
+    if(!row.gender){row.gender="male";changed=true}
+    if(row.everUsed!==true&&used.has(name)){row.everUsed=true;changed=true}
+    if(!row.topCategoryId){
+      const rid=profileTopCategoryId(row);
+      if(rid){row.topCategoryId=rid;row.topCategoryPath=catPath(rid);changed=true}
+    }
+    if(changed)await put(ST,row,{skipSync:true});
+    return row;
+  };
+  for(const name of registeredTags){
+    if(isCharCast(name))await upsert(name);
+  }
+  for(const name of used){
+    await upsert(name,{everUsed:true});
+  }
+  registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));
+}
+function profileRows(){return registeredTagMeta.filter(r=>r&&/^(?:character|cast):/i.test(tagLabel(r.name))&&(r.profile||/^(?:character|cast):$/i.test(String(r.kind||""))));}
 function profileMeta(tag){
   const row=profileForTag(tag);if(!row)return null;
   let saved=[...(row.profileTags||[])];
@@ -992,7 +1046,19 @@ function renderProfilePage(){
   const box=$("profileTagPage");if(!box)return;
   const q=(characterPageFilter||"").toLowerCase();
   const currentRoot=activeTopId?rootId(activeTopId):null;
-  const arr=registeredTags.filter(t=>/^(?:character|cast):/i.test(tagLabel(t))&&(()=>{const r=profileForTag(t);return r&&(!currentRoot||profileTopCategoryId(r)===currentRoot)})()&&(!q||profileDisplayName(t).toLowerCase().includes(q))).sort((a,b)=>profileDisplayName(a).localeCompare(profileDisplayName(b),"ko"));
+  const arr=registeredTags.filter(t=>{
+    if(!/^(?:character|cast):/i.test(tagLabel(t)))return false;
+    if(q&&!profileDisplayName(t).toLowerCase().includes(q))return false;
+    if(!currentRoot)return true;
+    const r=profileForTag(t)||registeredTagMeta.find(x=>x.name===t);
+    const rid=r?profileTopCategoryId(r):null;
+    if(rid)return rid===currentRoot;
+    // 메타 없으면 이름 prefix 또는 현재 워크스페이스 태그로 간주
+    const topPath=catPath(currentRoot);
+    if(t.startsWith("["+topPath+"]"))return true;
+    if(t.startsWith("["))return false;
+    return true;
+  }).sort((a,b)=>profileDisplayName(a).localeCompare(profileDisplayName(b),"ko"));
   const folders={};
   for(const t of arr){
     const m=profileMeta(t),series=m?.series?tagLabel(m.series).replace(/^series:\s*/i,"").trim():"시리즈 미지정";
@@ -1069,7 +1135,7 @@ $("addProfile").onclick=saveProfile;$("openProfileForm").onclick=()=>{resetProfi
 
 /* 등장인물 UI */
 function normalizeCharacter(c){const tags=[...(c?.tags||[])];const id=tags.find(t=>isIdentityTag(t));const role=c?.role||((id&&/^cast:/i.test(tagLabel(id)))?"cast":"character");return {name:String(c?.name||""),role,gender:c?.gender||"male",tags:[...new Set(tags)]};}
-function profileForTag(t){const low=String(t||"").toLowerCase();return registeredTagMeta.find(r=>r.profile&&String(r.name||"").toLowerCase()===low)||null;}
+function profileForTag(t){const low=String(t||"").toLowerCase();return registeredTagMeta.find(r=>r.profile&&String(r.name||"").toLowerCase()===low)||registeredTagMeta.find(r=>String(r.name||"").toLowerCase()===low&&/^(?:character|cast):/i.test(tagLabel(r.name)))||null;}
 function renderChars(){
   const box=$("charList");if(!box)return;
   box.innerHTML=curChars.map((c,i)=>{
@@ -1135,7 +1201,7 @@ function showCharacterNameSug(i,q){
     curChars[i].tags=curChars[i].tags.filter(tg=>!isIdentityTag(tg));
     if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);
     if(!registeredTags.includes(store)){
-      const row={name:store,kind:role+":",everUsed:true};
+      const row={name:store,kind:role+":",everUsed:true,profile:true,gender:curChars[i]?.gender||"male",topCategoryId:activeTopId?rootId(activeTopId):null,profileTags:[],series:""};
       put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);
       registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));
     }
