@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Tagmark v2.27 — Supabase Sync</title>
+<title>Tagmark v2.28 — Supabase Sync</title>
 <style>
 :root{--bg:#f5f7fb;--panel:#fff;--text:#172033;--muted:#697386;--line:#e5e9f0;--accent:#2563eb;--danger:#dc2626;--chip:#eef2ff;--inc:#dcfce7;--exc:#fee2e2;--inc-t:#166534;--exc-t:#991b1b;--cat:#fef3c7;--cat-t:#92400e;--male:#2563eb;--female:#dc2626;--artist:#7c3aed;--series:#16a34a;--tag:#111827;--character:#0e7490;--character-bg:#cffafe;--character-line:#67e8f9;--production:#db2777;--character-male:#0e7490;--character-female:hsl(0 82.278% 30.98%);--character-both:hsl(270 82.278% 30.98%)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -145,7 +145,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.27 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.28 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -371,6 +371,7 @@ async function replaceLocalFromCloud(data){
     for(const r of oldT)await del(ST,r.name,{skipSync:true});
     for(const r of oldC)await del(SC,r.id,{skipSync:true});
     for(const r of (data.bookmarks||[]))if(r?.id)await put(SB,r,{skipSync:true});
+    for(const r of (data.folders||[]))if(r?.id)await put(SF,r,{skipSync:true});
     for(const r0 of (data.registeredTags||[])){
   const tagRecord=typeof r0==="string"?{name:r0}:r0;
   if(tagRecord?.name)await put(ST,tagRecord,{skipSync:true});
@@ -650,7 +651,11 @@ const resolvePath=(s,under)=>!s?.trim()?under||null:ensurePath(s.split(/[/＞>]/
 
 /* 로드 */
 async function refresh(){
-  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);folders=await rawAll(SF);const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;await ensureTagIds(registeredTags);loadTagFilterStates();categories=await all(SC);
+  await loadTagIndex();const raw=await rawAll(SB);items=raw.map(decodeBookmark);folders=await rawAll(SF);
+  {const have=new Set(folders.map(f=>f.id));const missing=new Map();
+  for(const x of items){if(x.folderId&&!have.has(x.folderId)&&!missing.has(x.folderId))missing.set(x.folderId,{id:x.folderId,title:"(복구된 폴더)",artist:"",series:"",createdAt:x.createdAt||Date.now(),updatedAt:x.updatedAt||Date.now()})}
+  for(const f of missing.values()){await put(SF,f,{skipSync:true});folders.push(f)}}
+  const stRows=await all(ST);registeredTags=stRows.map(t=>t.name);registeredTagMeta=stRows;await ensureTagIds(registeredTags);loadTagFilterStates();categories=await all(SC);
   const legacy=raw.filter(r=>r?.id&&!r.i);for(const x of items)if(legacy.some(r=>r.id===x.id))await put(SB,x,{skipSync:true});
   for(const row of registeredTagMeta){if(row?.profile&&!row.topCategoryId){const rid=profileTopCategoryId(row);if(rid){row.topCategoryId=rid;row.topCategoryPath=catPath(rid);await put(ST,row)}}}
   for(const x of items){if(x.category&&!x.categoryId){const id=await resolvePath(x.category,null);if(id){x.categoryId=id;delete x.category;await put(SB,x)}}}
@@ -965,7 +970,68 @@ function renderTagGrid(){const q=($("tagFilterSearch")?.value||"").trim().toLowe
 function cycleTag(tag){let i=tagStates.include||[],e=tagStates.exclude||[];i=i.filter(x=>x!==tag);e=e.filter(x=>x!==tag);if(!(tagStates.include||[]).includes(tag)&&!(tagStates.exclude||[]).includes(tag))i.push(tag);else if((tagStates.include||[]).includes(tag))e.push(tag);tagStates={include:i,exclude:e};saveTagFilterStates();renderResults();renderTagGrid();}
 function tagKindOf(t){const m=tagLabel(t).toLowerCase().match(/^(male|female|artist|series|language|character|cast|tag|production):/);return m?m[1]:"tag"}
 function getTagUsageCount(tag){let count=0;for(const x of items)if((x.tags||[]).includes(tag)||(x.characters||[]).some(c=>(c.tags||[]).includes(tag)))count++;return count}
-function renderRegList(){const box=$("registeredTagList");if(!box)return;const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const list=registeredTags.filter(t=>(prefix?t.startsWith(prefix):!/^\[/.test(t)));const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};for(const t of list)groups[tagKindOf(t)].push(t);const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];box.innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-folder" data-tag-manage-kind="'+k+'" '+(tagManageOpenKinds.has(k)?'open':'')+'><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-folder-body">'+arr.map(t=>'<div class="reg-row">'+tagMarkup(t)+'<span class="meta" style="margin-left:auto">'+getTagUsageCount(t)+'</span><button class="btn sm" data-ren="'+esc(t)+'">수정</button><button class="btn sm danger" data-rd="'+esc(t)+'">삭제</button></div>').join("")+'</div></details>';}).join("")||'<div class="empty" style="padding:8px">등록 없음</div>';box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=async()=>{const old=b.dataset.ren,neu=prompt("새 이름:",tagLabel(old));if(!neu?.trim())return;const raw=neu.trim(),kind=tagKindOf(old),name=prefix+kind+":"+raw;if(name===old)return;const oldMeta=registeredTagMeta.find(r=>r.name===old);await del(ST,old);const nm=oldMeta?{...oldMeta,name}:{name,kind:kind+":"};await put(ST,nm);registeredTagMeta=registeredTagMeta.map(r=>r.name===old?nm:r);registeredTags=registeredTags.map(t=>t===old?name:t);for(const x of items){if((x.tags||[]).includes(old)){x.tags=x.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}for(const ch of x.characters||[])if((ch.tags||[]).includes(old)){ch.tags=ch.tags.map(t=>t===old?name:t);x.updatedAt=Date.now();await put(SB,x)}}if((tagStates.include||[]).includes(old))tagStates.include=tagStates.include.map(t=>t===old?name:t);if((tagStates.exclude||[]).includes(old))tagStates.exclude=tagStates.exclude.map(t=>t===old?name:t);saveTagFilterStates();await refresh();});box.querySelectorAll("details[data-tag-manage-kind]").forEach(d=>d.addEventListener("toggle",()=>{if(d.open)tagManageOpenKinds.add(d.dataset.tagManageKind);else tagManageOpenKinds.delete(d.dataset.tagManageKind)}));box.querySelectorAll("[data-rd]").forEach(b=>b.onclick=async()=>{const name=b.dataset.rd;if(!confirm("등록 삭제? 북마크에서도 이 태그를 모두 삭제합니다."))return;await del(ST,name);registeredTags=registeredTags.filter(t=>t!==name);registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);tagStates={include:(tagStates.include||[]).filter(t=>t!==name),exclude:(tagStates.exclude||[]).filter(t=>t!==name)};saveTagFilterStates();for(const x of items){let changed=false;if((x.tags||[]).includes(name)){x.tags=x.tags.filter(t=>t!==name);changed=true}for(const c of x.characters||[]){if((c.tags||[]).includes(name)){c.tags=c.tags.filter(t=>t!==name);changed=true}}if(changed){x.updatedAt=Date.now();await put(SB,x)}}await cleanupZeroUseTags();await refresh()});}
+
+function tagNameOnly(t){return tagLabel(t).replace(/^(?:male|female|artist|series|language|character|cast|tag|production):\s*/i,"")}
+async function renameRegisteredTag(old){
+  const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";
+  const kind=tagKindOf(old);
+  const neu=prompt("새 이름 (종류 접두어 없이):",tagNameOnly(old));
+  if(!neu||!String(neu).trim())return;
+  const raw=tagNameOnly(String(neu).trim());if(!raw)return;
+  const name=prefix+kind+":"+raw;
+  if(name===old)return;
+  if(registeredTags.includes(name)){alert("같은 이름의 태그가 이미 있습니다.");return}
+  const oldMeta=registeredTagMeta.find(r=>r.name===old);
+  await del(ST,old);
+  const nm=oldMeta?Object.assign({},oldMeta,{name:name,everUsed:true}):{name:name,kind:kind+":",everUsed:true};
+  await put(ST,nm);
+  registeredTagMeta=registeredTagMeta.map(r=>r.name===old?nm:r);
+  registeredTags=registeredTags.map(tg=>tg===old?name:tg);
+  for(const x of items){
+    let chg=false;
+    if((x.tags||[]).includes(old)){x.tags=x.tags.map(tg=>tg===old?name:tg);chg=true}
+    for(const ch of x.characters||[]){if((ch.tags||[]).includes(old)){ch.tags=ch.tags.map(tg=>tg===old?name:tg);chg=true}}
+    if(chg){x.updatedAt=Date.now();await put(SB,x)}
+  }
+  for(const f of folders){
+    let chg=false;
+    if(f.artist===old){f.artist=name;chg=true}
+    if(f.series===old){f.series=name;chg=true}
+    if(chg){f.updatedAt=Date.now();await put(SF,f)}
+  }
+  for(const r of registeredTagMeta){
+    if(!r||r.name===name)continue;
+    let chg=false;
+    if(Array.isArray(r.profileTags)){const n=r.profileTags.map(tg=>tg===old?name:tg);if(n.join("\0")!==r.profileTags.join("\0")){r.profileTags=n;chg=true}}
+    if(r.series===old){r.series=name;chg=true}
+    if(chg)await put(ST,r);
+  }
+  if((tagStates.include||[]).includes(old))tagStates.include=tagStates.include.map(tg=>tg===old?name:tg);
+  if((tagStates.exclude||[]).includes(old))tagStates.exclude=tagStates.exclude.map(tg=>tg===old?name:tg);
+  saveTagFilterStates();await refresh();
+}
+async function deleteRegisteredTag(name){
+  if(!confirm('태그 "'+tagLabel(name)+'" 삭제? 등록 목록과 모든 북마크에서 제거됩니다.'))return;
+  await del(ST,name);
+  registeredTags=registeredTags.filter(tg=>tg!==name);
+  registeredTagMeta=registeredTagMeta.filter(r=>r.name!==name);
+  tagStates={include:(tagStates.include||[]).filter(tg=>tg!==name),exclude:(tagStates.exclude||[]).filter(tg=>tg!==name)};
+  saveTagFilterStates();
+  for(const x of items){
+    let chg=false;
+    if((x.tags||[]).includes(name)){x.tags=x.tags.filter(tg=>tg!==name);chg=true}
+    for(const c of x.characters||[]){if((c.tags||[]).includes(name)){c.tags=c.tags.filter(tg=>tg!==name);chg=true}}
+    if(chg){x.updatedAt=Date.now();await put(SB,x)}
+  }
+  for(const f of folders){
+    let chg=false;
+    if(f.artist===name){f.artist="";chg=true}
+    if(f.series===name){f.series="";chg=true}
+    if(chg){f.updatedAt=Date.now();await put(SF,f)}
+  }
+  await refresh();
+}
+function renderRegList(){const box=$("registeredTagList");if(!box)return;const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const list=registeredTags.filter(t=>(prefix?t.startsWith(prefix):!/^\[/.test(t)));const groups={male:[],female:[],artist:[],series:[],language:[],character:[],cast:[],tag:[],production:[]};for(const t of list)groups[tagKindOf(t)].push(t);const labels={male:"Male",female:"Female",artist:"Artist",series:"Series",language:"Language",character:"Character",cast:"Cast",tag:"Tag",production:"Production"};const order=["artist","series","language","character","cast","production","male","female","tag"];box.innerHTML=order.map(k=>{const arr=groups[k].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));if(!arr.length)return"";return '<details class="tag-folder" data-tag-manage-kind="'+k+'" '+(tagManageOpenKinds.has(k)?'open':'')+'><summary><span>'+labels[k]+'</span><span class="meta">'+arr.length+'개</span></summary><div class="tag-folder-body">'+arr.map(t=>'<div class="reg-row">'+tagMarkup(t)+'<span class="meta" style="margin-left:auto">'+getTagUsageCount(t)+'</span><button class="btn sm" data-ren="'+esc(t)+'">수정</button><button class="btn sm danger" data-rd="'+esc(t)+'">삭제</button></div>').join("")+'</div></details>';}).join("")||'<div class="empty" style="padding:8px">등록 없음</div>';box.querySelectorAll("[data-ren]").forEach(b=>b.onclick=()=>renameRegisteredTag(b.dataset.ren));box.querySelectorAll("details[data-tag-manage-kind]").forEach(d=>d.addEventListener("toggle",()=>{if(d.open)tagManageOpenKinds.add(d.dataset.tagManageKind);else tagManageOpenKinds.delete(d.dataset.tagManageKind)}));box.querySelectorAll("[data-rd]").forEach(b=>b.onclick=()=>deleteRegisteredTag(b.dataset.rd));}
 function pageTagButton(t){return '<button class="tb '+(tagStates[t]||"")+' '+tagColor(t)+'" data-page-tag="'+esc(t)+'">'+esc(tagLabel(t))+' <span class="cnt">'+getTagUsageCount(t)+'</span></button>';}
 function profileTopCategoryId(row){
   if(!row)return null;
@@ -1111,8 +1177,8 @@ function showCharTagSug(i,q){const box=document.querySelector('[data-ctagsuggest
 function genderTagAllowed(tag,gender){const k=tagKindOf(tag);return k==="tag"||(gender==="both"?(k==="male"||k==="female"):k===gender)}
 function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase(),gender=curChars[i]?.gender||"male";const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)&&genderTagAllowed(t,gender)).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||tagLabel(t).toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")).slice(0,15).map(tagLabel);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
 async function addDependentTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const m=raw.match(/^(male|female|series|artist|tag):\s*(.*)$/i);let store;if(m){store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+m[1].toLowerCase()+":"+m[2].trim()}else{store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+"tag:"+raw}
-  if(/^series:/i.test(tagLabel(store))){bookmarkSeriesSelection=store;renderBookmarkSpecialSelections();return}
-  if(/^artist:/i.test(tagLabel(store))){bookmarkArtistSelection=store;renderBookmarkSpecialSelections();return}
+  if(/^series:/i.test(tagLabel(store))){if(!bookmarkSeriesSelections.includes(store))bookmarkSeriesSelections.push(store);renderBookmarkSpecialSelections();return}
+  if(/^artist:/i.test(tagLabel(store))){if(!bookmarkArtistSelections.includes(store))bookmarkArtistSelections.push(store);renderBookmarkSpecialSelections();return}
   if(!curChars[i].tags)curChars[i].tags=[];if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);if(register&&!registeredTags.includes(store)){const row={name:store,kind:tagKindOf(store)+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}renderChars();renderSelTags()}
 async function addIdentityTag(i,tag){const prof=profileForTag(tag);if(!prof){commitPlainCharacterName(i,tag);return}selectCharacterProfile(i,prof.name)}
 function applyProfileToCurrent(i,prof){
@@ -1124,7 +1190,7 @@ function applyProfileToCurrent(i,prof){
     if(scope&&!st.startsWith("["))st=scope+st;
     // Series는 북마크의 Series 칸으로만 연결한다.
     if(/^series:/i.test(tagLabel(st))){
-      bookmarkSeriesSelection=st;
+      if(!bookmarkSeriesSelections.includes(st))bookmarkSeriesSelections.push(st);
       continue;
     }
     // 프로필의 사전등록 태그는 등장인물 자체의 태그로만 유지한다.
@@ -1140,7 +1206,7 @@ $("addCharBtn").onclick=addOneChar;
 function showEdit(x){
   editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";$("cloneEditBtn").classList.toggle("hidden",!x);
   $("url").value=x?.url||"";$("title").value=x?.title||"";$("notes").value=x?.notes||"";
-  bookmarkSeriesSelection=(x?.tags||[]).find(t=>/^series:/i.test(tagLabel(t)))||"";bookmarkArtistSelection=(x?.tags||[]).find(t=>/^artist:/i.test(tagLabel(t)))||"";curTags=[...(x?.tags||[])].filter(t=>!/^series:/i.test(tagLabel(t))&&!/^artist:/i.test(tagLabel(t)));renderBookmarkSpecialSelections();
+  bookmarkSeriesSelections=(x?.tags||[]).filter(t=>/^series:/i.test(tagLabel(t)));bookmarkArtistSelections=(x?.tags||[]).filter(t=>/^artist:/i.test(tagLabel(t)));curTags=[...(x?.tags||[])].filter(t=>!/^series:/i.test(tagLabel(t))&&!/^artist:/i.test(tagLabel(t)));renderBookmarkSpecialSelections();
   // 하위 카테고리: 최상위가 아니면 그대로, 최상위만이면 null
   curCatId=x?.categoryId||activeTopId;
   if(curCatId===activeTopId)curCatId=activeTopId; // 기본 최상위
@@ -1168,20 +1234,87 @@ function renderSelCat(){
   box.innerHTML='<span class="chip cat">'+esc(catPath(curCatId))+' <button type="button" id="clrCat">×</button></span>';
   $("clrCat").onclick=()=>{curCatId=activeTopId;renderSelCat()};
 }
-let bookmarkSeriesSelection="",bookmarkArtistSelection="";function renderBookmarkSpecialSelections(){const s=$("bookmarkSeriesSelected"),a=$("bookmarkArtistSelected");s.innerHTML=bookmarkSeriesSelection?tagMarkup(bookmarkSeriesSelection,true):"";a.innerHTML=bookmarkArtistSelection?tagMarkup(bookmarkArtistSelection,true):"";s.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{bookmarkSeriesSelection="";renderBookmarkSpecialSelections()});a.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{bookmarkArtistSelection="";renderBookmarkSpecialSelections()})}
-function showBookmarkSpecialSug(kind,q){const box=$(kind==="series"?"bookmarkSeriesSuggest":"bookmarkArtistSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"",rx=new RegExp("^"+kind+":","i"),cand=registeredTags.filter(t=>t.startsWith(prefix)&&rx.test(tagLabel(t))&&(!low||tagLabel(t).toLowerCase().includes(low))).slice(0,15);box.innerHTML=cand.map(t=>'<div data-bpick="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-bpick]").forEach(b=>b.onclick=()=>{if(kind==="series")bookmarkSeriesSelection=b.dataset.bpick;else bookmarkArtistSelection=b.dataset.bpick;$(kind==="series"?"bookmarkSeriesInput":"bookmarkArtistInput").value="";box.classList.remove("open");renderBookmarkSpecialSelections()})}
+let bookmarkSeriesSelections=[],bookmarkArtistSelections=[];
+function renderBookmarkSpecialSelections(){
+  const s=$("bookmarkSeriesSelected"),a=$("bookmarkArtistSelected");if(!s||!a)return;
+  s.innerHTML=bookmarkSeriesSelections.map(tg=>tagMarkup(tg,true)).join("");
+  a.innerHTML=bookmarkArtistSelections.map(tg=>tagMarkup(tg,true)).join("");
+  s.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{bookmarkSeriesSelections=bookmarkSeriesSelections.filter(x=>x!==b.dataset.trm);renderBookmarkSpecialSelections()});
+  a.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{bookmarkArtistSelections=bookmarkArtistSelections.filter(x=>x!==b.dataset.trm);renderBookmarkSpecialSelections()});
+}
+function showBookmarkSpecialSug(kind,q){
+  const box=$(kind==="series"?"bookmarkSeriesSuggest":"bookmarkArtistSuggest");if(!box)return;
+  const low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";
+  const rx=new RegExp("^"+kind+":","i");
+  const selected=kind==="series"?bookmarkSeriesSelections:bookmarkArtistSelections;
+  const cand=registeredTags.filter(tg=>tg.startsWith(prefix)&&rx.test(tagLabel(tg))&&!selected.includes(tg)&&(!low||tagLabel(tg).toLowerCase().includes(low))).slice(0,15);
+  let html=cand.map(tg=>'<div data-bpick="'+esc(tg)+'">'+esc(tagLabel(tg))+'</div>').join("");
+  const typed=(q||"").trim();
+  if(typed){
+    const clean=typed.replace(new RegExp("^"+kind+":\\s*","i"),"");
+    const store=prefix+kind+":"+clean;
+    if(clean&&!selected.includes(store))
+      html+='<div data-bnew="'+esc(store)+'" class="new-char-tag">＋ "'+esc(kind+":"+clean)+'" 등록</div>';
+  }
+  box.innerHTML=html;box.classList.toggle("open",!!html);
+  box.querySelectorAll("[data-bpick]").forEach(b=>b.onclick=()=>{
+    if(kind==="series"){if(!bookmarkSeriesSelections.includes(b.dataset.bpick))bookmarkSeriesSelections.push(b.dataset.bpick)}
+    else{if(!bookmarkArtistSelections.includes(b.dataset.bpick))bookmarkArtistSelections.push(b.dataset.bpick)}
+    $(kind==="series"?"bookmarkSeriesInput":"bookmarkArtistInput").value="";box.classList.remove("open");renderBookmarkSpecialSelections();
+  });
+  box.querySelectorAll("[data-bnew]").forEach(b=>b.onclick=async()=>{
+    const store=b.dataset.bnew;
+    if(kind==="series"){if(!bookmarkSeriesSelections.includes(store))bookmarkSeriesSelections.push(store)}
+    else{if(!bookmarkArtistSelections.includes(store))bookmarkArtistSelections.push(store)}
+    if(!registeredTags.includes(store)){
+      const row={name:store,kind:kind+":",everUsed:true};
+      await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));
+    }
+    $(kind==="series"?"bookmarkSeriesInput":"bookmarkArtistInput").value="";box.classList.remove("open");renderBookmarkSpecialSelections();
+  });
+}
 function showTagSug(q){
-  const box=$("tagSuggest"),low=q.toLowerCase();
-  const cand=tagsInScope().filter(t=>!/^(?:\[.*\]\s+)?(?:series|artist):/i.test(t)&&!curTags.includes(t)&&tagLabel(t).toLowerCase().includes(low)).slice(0,12);
-  if(!cand.length){box.classList.remove("open");return}
-  box.innerHTML=cand.map(t=>'<div data-t="'+esc(t)+'" class="'+tagColor(t)+'">'+esc(tagLabel(t))+'</div>').join("");
-  box.classList.add("open");
-  box.querySelectorAll("div").forEach(d=>d.onclick=()=>{addTag(d.dataset.t);$("tagPickerInput").value="";box.classList.remove("open")});
+  const box=$("tagSuggest"),low=(q||"").toLowerCase();
+  const cand=tagsInScope().filter(t=>{
+    const lab=tagLabel(t);
+    if(/^(?:character|cast):/i.test(lab))return false;
+    if(curTags.includes(t)||bookmarkSeriesSelections.includes(t)||bookmarkArtistSelections.includes(t))return false;
+    return !low||lab.toLowerCase().includes(low);
+  }).slice(0,12);
+  let html=cand.map(t=>'<div data-t="'+esc(t)+'" class="'+tagColor(t)+'">'+esc(tagLabel(t))+'</div>').join("");
+  const typed=(q||"").trim();
+  if(typed && !/^(?:character|cast):/i.test(typed)){
+    const store=activeTopId&&!typed.startsWith("[")?("["+catPath(activeTopId)+"] "+typed):typed;
+    const lab=tagLabel(store);
+    if(!/^(?:character|cast):/i.test(lab) && !cand.some(t=>t===store||tagLabel(t).toLowerCase()===lab.toLowerCase()))
+      html+='<div data-tnew="'+esc(typed)+'" class="new-char-tag">＋ "'+esc(typed)+'" 등록</div>';
+  }
+  if(!html){box.classList.remove("open");return}
+  box.innerHTML=html;box.classList.add("open");
+  box.querySelectorAll("[data-t]").forEach(d=>d.onclick=()=>{addTag(d.dataset.t);$("tagPickerInput").value="";box.classList.remove("open")});
+  box.querySelectorAll("[data-tnew]").forEach(d=>d.onclick=()=>{addTag(d.dataset.tnew);$("tagPickerInput").value="";box.classList.remove("open")});
 }
 async function addTag(tag){
-  tag=tag.trim();if(!tag)return;const storeName=activeTopId&&!tag.startsWith("[")?("["+catPath(activeTopId)+"] "+tag):tag;
-  if(curTags.includes(storeName))return;curTags.push(storeName);
-  if(!registeredTags.includes(storeName)){await put(ST,{name:storeName,everUsed:true});registeredTags.push(storeName);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));}renderSelTags();
+  tag=String(tag||"").trim();if(!tag)return;
+  let storeName=activeTopId&&!tag.startsWith("[")?("["+catPath(activeTopId)+"] "+tag):tag;
+  const lab=tagLabel(storeName);
+  if(/^(?:character|cast):/i.test(lab)){alert("character:/cast: 태그는 등장인물/프로필에서만 추가할 수 있습니다.");return}
+  if(/^series:/i.test(lab)){
+    if(!bookmarkSeriesSelections.includes(storeName))bookmarkSeriesSelections.push(storeName);
+    renderBookmarkSpecialSelections();
+  } else if(/^artist:/i.test(lab)){
+    if(!bookmarkArtistSelections.includes(storeName))bookmarkArtistSelections.push(storeName);
+    renderBookmarkSpecialSelections();
+  } else {
+    if(curTags.includes(storeName))return;
+    curTags.push(storeName);renderSelTags();
+  }
+  if(!registeredTags.includes(storeName)){
+    const kk=(lab.match(/^(male|female|artist|series|language|character|cast|tag|production):/i)||[])[1];
+    const row={name:storeName,kind:kk?(kk.toLowerCase()+":"):"tag:",everUsed:true};
+    await put(ST,row);registeredTags.push(storeName);registeredTagMeta.push(row);
+    registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));
+  }
 }
 function showCatSug(q){
   const box=$("catSuggest"),low=(q||"").toLowerCase(),ordered=[];
@@ -1244,10 +1377,10 @@ $("saveBtn").onclick=async()=>{
   const saveId=editingId||uid();
   for(const t of oldTagSet){const r=registeredTagMeta.find(r=>r.name===t);if(r)r.everUsed=true}
   await put(SB,{id:saveId,url,title:$("title").value.trim()||url,categoryId,
-    folderId:old?.folderId||null,tags:[...new Set([...curTags,...(bookmarkSeriesSelection?[bookmarkSeriesSelection]:[]),...(bookmarkArtistSelection?[bookmarkArtistSelection]:[])])].sort((a,b)=>tagLabel(a).localeCompare(b,"ko")),characters:chars,notes:$("notes").value.trim(),metaType:mt,
+    folderId:old?.folderId||null,tags:[...new Set([...curTags,...bookmarkSeriesSelections,...bookmarkArtistSelections])].sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")),characters:chars,notes:$("notes").value.trim(),metaType:mt,
     pages:mt==="pages"?(parseInt($("metaPages").value,10)||null):null,
     duration:mt==="duration"?getDur():null,createdAt:old?.createdAt||now,updatedAt:now});
-  for(const t of [...curTags,...(bookmarkSeriesSelection?[bookmarkSeriesSelection]:[]),...(bookmarkArtistSelection?[bookmarkArtistSelection]:[])]){const r=registeredTagMeta.find(r=>r.name===t);if(r){r.everUsed=true;await put(ST,r)}}
+  for(const t of [...curTags,...bookmarkSeriesSelections,...bookmarkArtistSelections]){const r=registeredTagMeta.find(r=>r.name===t);if(r){r.everUsed=true;await put(ST,r)}}
   if(old?.folderId){const f=folders.find(v=>v.id===old.folderId);if(f){f.updatedAt=now;await put(SF,f)}}
   await cleanupZeroUseTags()
   $("editModal").classList.remove("open");await refresh();
@@ -1320,7 +1453,7 @@ function parseHTML(t){const doc=new DOMParser().parseFromString(t,"text/html"),o
     }else walk(el,path)}};walk(doc.body,[]);return out}
 $("exportBtn").onclick=async()=>{
   const blob=new Blob([JSON.stringify({version:4,exportedAt:new Date().toISOString(),
-    bookmarks:(await all(SB)).map(x=>({...x,characters:(x.characters||[]).map(c=>({role:c.role||"character",gender:c.gender||"male",tags:[...(c.tags||[])]}))})),registeredTags:await all(ST),categories:await all(SC)},null,2)],{type:"application/json"});
+    bookmarks:(await all(SB)).map(x=>({...x,characters:(x.characters||[]).map(c=>({role:c.role||"character",gender:c.gender||"male",tags:[...(c.tags||[])]}))})),folders:await all(SF),registeredTags:await all(ST),categories:await all(SC)},null,2)],{type:"application/json"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tagmark-backup.json";a.click();URL.revokeObjectURL(a.href);
 };
 function renderSearchSuggest(){
