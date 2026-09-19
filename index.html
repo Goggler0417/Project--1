@@ -145,7 +145,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
 <body>
 <div class="app">
 <header>
-  <div><div class="logo">Tagmark</div><div class="sub">v2.38 · Local + Supabase Sync</div></div>
+  <div><div class="logo">Tagmark</div><div class="sub">v2.39 · Local + Supabase Sync</div></div>
   <div class="toolbar">
     <button class="btn primary hidden" id="addBtn">＋ 북마크</button>
     <button class="btn" id="importBtn">가져오기</button>
@@ -279,10 +279,17 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
       <div class="picker"><input id="catPickerInput" placeholder="" autocomplete="off"><div class="suggest cat" id="catSuggest"></div></div>
       <div class="selected" id="selectedCat"></div>
     </div>
-    <div class="field" id="charField" style="border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfe">
-      <label style="margin-bottom:8px">Add Character/Cast</label>
-      <div class="char-tools"><button type="button" class="btn sm" id="charSelectAll">전체 선택</button><button type="button" class="btn sm" id="charClearAll">선택 해제</button></div><div id="charList"></div>
-      <button type="button" class="btn primary" id="addCharBtn" style="width:100%;margin-top:8px">Add Character/Cast</button><button type="button" class="btn" id="copyCharBtn" style="width:100%;margin-top:8px">Copy Character/Cast</button>
+    <div class="field char-field" id="charField">
+      <button type="button" class="char-field-toggle" id="charFieldToggle" aria-expanded="false">Add Character/Cast <span>▼</span></button>
+      <div class="char-field-body hidden" id="charFieldBody">
+        <div class="char-tools"><button type="button" class="btn sm" id="charSelectAll">전체 선택</button><button type="button" class="btn sm" id="charClearAll">선택 해제</button><button type="button" class="btn sm" id="charMoveUp">▲ 위</button><button type="button" class="btn sm" id="charMoveDown">▼ 아래</button></div>
+        <div class="char-list" id="charList"></div>
+        <div class="char-common-tools">
+          <label>선택된 등장인물에 공통 태그</label>
+          <div class="picker"><input id="commonCharTagInput" placeholder="선택된 등장인물에 적용할 태그 검색..." autocomplete="off"><div class="suggest tag" id="commonCharTagSuggest"></div></div>
+        </div>
+        <div class="char-footer-actions"><button type="button" class="btn primary" id="addCharBtn">Add Character/Cast</button><button type="button" class="btn" id="copyCharBtn">Copy Character/Cast</button></div>
+      </div>
     </div>
     <div class="field"><label>Artist</label><div class="picker"><input id="bookmarkArtistInput" placeholder="Artist 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkArtistSuggest"></div></div><div class="selected" id="bookmarkArtistSelected"></div></div>
     <div class="field"><label>Series</label><div class="picker"><input id="bookmarkSeriesInput" placeholder="Series 태그 검색" autocomplete="off"><div class="suggest tag" id="bookmarkSeriesSuggest"></div></div><div class="selected" id="bookmarkSeriesSelected"></div></div>
@@ -303,7 +310,7 @@ header{padding:18px 4px 12px;display:flex;gap:12px;align-items:center;justify-co
         <input id="durS" type="number" min="0" max="59" value="0"></div>
     </div>
     <div class="field"><label>Note</label><textarea id="notes" placeholder=""></textarea></div>
-    <div class="modal-actions"><button class="btn" id="cloneEditBtn">복제</button><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div>
+    <div class="modal-actions edit-actions"><div class="edit-danger-actions"><button class="btn danger hidden" id="deleteEditBtn">삭제</button><button class="btn hidden" id="cloneEditBtn">복제</button></div><div class="edit-main-actions"><button class="btn" id="cancelBtn">취소</button><button class="btn primary" id="saveBtn">저장</button></div></div>
   </div>
 </div>
 
@@ -882,7 +889,7 @@ function card(x){
       (deps.length?'<div class="character-details" data-char-details="'+i+'">'+deps.map(t=>'<button type="button" class="chip '+tagColor(t)+'" data-char-tag="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("")+"</div>":"")+"</div>";
   }).join("");
   let meta="";if(x.metaType==="pages"&&x.pages)meta='<div class="meta">'+x.pages+' 페이지</div>';if(x.metaType==="duration"&&x.duration)meta='<div class="meta">'+esc(x.duration)+'</div>';
-  return '<article class="card"><div class="card-title-row"><div class="card-title"><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title||x.url)+'</a></div><input type="checkbox" class="card-select" data-select="'+esc(x.id)+'" '+(selectedIds.has(x.id)?"checked":"")+'></div><div class="main-info">'+mainInfo+'</div>'+meta+chars+'<div class="chips main-general-tags">'+cat+tags+'</div>'+(x.notes?'<div class="notes">'+esc(x.notes)+'</div>':"")+'<div class="actions"><button type="button" class="btn" data-edit="'+esc(x.id)+'">수정</button><button type="button" class="btn" data-clone="'+esc(x.id)+'">복제</button><button type="button" class="btn danger" data-rm="'+esc(x.id)+'">삭제</button></div></article>';
+  return '<article class="card"><div class="card-title-row"><div class="card-title"><a href="'+esc(x.url)+'" target="_blank" rel="noopener noreferrer">'+esc(x.title||x.url)+'</a></div><input type="checkbox" class="card-select" data-select="'+esc(x.id)+'" '+(selectedIds.has(x.id)?"checked":"")+'></div><div class="main-info">'+mainInfo+'</div>'+meta+chars+'<div class="chips main-general-tags">'+cat+tags+'</div>'+(x.notes?'<div class="notes">'+esc(x.notes)+'</div>':"")+'<div class="actions"><button type="button" class="btn" data-edit="'+esc(x.id)+'">수정</button></div></article>';
 }
 
 async function cloneBookmark(id){
@@ -1101,8 +1108,8 @@ async function registerTagByKind(kind,raw){raw=String(raw||"").trim();if(!raw||!
 $("addRegisteredTag").onclick=async()=>{const raw=$("newTagName").value.trim(),kinds=selectedTagKinds();if(!raw||!activeTopId||!kinds.length){alert("태그 이름과 태그 카테고리를 선택하세요.");return}for(const kind of kinds)await registerTagByKind(kind,raw);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));$("newTagName").value="";render()};
 let profileSeriesSelection="", profileTagSelections=[], editingProfileTag=null;
 function renderProfileSelections(){const sb=$("profileSeriesSelected"),tb=$("profileTagsSelected");sb.innerHTML=profileSeriesSelection?tagMarkup(profileSeriesSelection,true):"";tb.innerHTML=profileTagSelections.map(t=>tagMarkup(t,true)).join("");sb.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{profileSeriesSelection="";renderProfileSelections()});tb.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{profileTagSelections=profileTagSelections.filter(t=>t!==b.dataset.trm);renderProfileSelections()})}
-function showProfileSeriesSug(q){const box=$("profileSeriesSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&/^series:/i.test(tagLabel(t))&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection).slice(0,15);box.innerHTML=cand.map(t=>'<div data-ps="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{profileSeriesSelection=b.dataset.ps;$("profileSeriesInput").value="";box.classList.remove("open");renderProfileSelections()})}
-function showProfileTagSug(q){const box=$("profileTagsSuggest"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const gender=document.querySelector('input[name="profileGender"]:checked')?.value||"male";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&!isIdentityTag(t)&&!isInfoTag(t)&&genderTagAllowed(t,gender)&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection&&!profileTagSelections.includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<div data-pt="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");box.classList.toggle("open",!!box.innerHTML);box.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{profileTagSelections.push(b.dataset.pt);$("profileTagsInput").value="";box.classList.remove("open");renderProfileSelections()})}
+function showProfileSeriesSug(q){const box=$("profileSeriesSuggest"),input=$("profileSeriesInput"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&/^series:/i.test(tagLabel(t))&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection).slice(0,15);box.innerHTML=cand.map(t=>'<div data-ps="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");if(box.innerHTML)placeFloatingSuggest(box,input);else clearFloatingSuggest(box);box.querySelectorAll("[data-ps]").forEach(b=>b.onclick=()=>{profileSeriesSelection=b.dataset.ps;input.value="";clearFloatingSuggest(box);renderProfileSelections()})}
+function showProfileTagSug(q){const box=$("profileTagsSuggest"),input=$("profileTagsInput"),low=(q||"").toLowerCase(),prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const gender=document.querySelector('input[name="profileGender"]:checked')?.value||"male";const cand=registeredTags.filter(t=>t.startsWith(prefix)&&!isIdentityTag(t)&&!isInfoTag(t)&&genderTagAllowed(t,gender)&&(!low||tagLabel(t).toLowerCase().includes(low))).filter(t=>t!==profileSeriesSelection&&!profileTagSelections.includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<div data-pt="'+esc(t)+'">'+esc(tagLabel(t))+'</div>').join("");if(box.innerHTML)placeFloatingSuggest(box,input);else clearFloatingSuggest(box);box.querySelectorAll("[data-pt]").forEach(b=>b.onclick=()=>{profileTagSelections.push(b.dataset.pt);input.value="";clearFloatingSuggest(box);renderProfileSelections()})}
 $("profileSeriesInput").oninput=e=>{showProfileSeriesSug(e.target.value);if(!e.target.value.trim())closeSuggest($("profileSeriesSuggest"))};$("profileSeriesInput").onfocus=e=>{if(e.target.value.trim())showProfileSeriesSug(e.target.value)};
 $("profileTagsInput").oninput=e=>{showProfileTagSug(e.target.value);if(!e.target.value.trim())closeSuggest($("profileTagsSuggest"))};$("profileTagsInput").onfocus=e=>{if(e.target.value.trim())showProfileTagSug(e.target.value)};document.querySelectorAll('input[name="profileGender"]').forEach(r=>r.onchange=()=>{const g=document.querySelector('input[name="profileGender"]:checked')?.value||"male";profileTagSelections=profileTagSelections.filter(t=>genderTagAllowed(t,g));renderProfileSelections();if($("profileTagsInput")?.value.trim())showProfileTagSug($("profileTagsInput").value)});
 function resetProfileForm(){editingProfileTag=null;$('profileName').value='';document.querySelector('input[name="profileKind"][value="character:"]').checked=true;document.querySelector('input[name="profileGender"][value="male"]').checked=true;profileSeriesSelection='';profileTagSelections=[];renderProfileSelections();$('addProfile').textContent='프로필 등록';$('profileModalTitle').textContent='프로필 등록'}
@@ -1136,123 +1143,74 @@ $("addProfile").onclick=saveProfile;$("openProfileForm").onclick=()=>{resetProfi
 /* 등장인물 UI */
 function normalizeCharacter(c){const tags=[...(c?.tags||[])];const id=tags.find(t=>isIdentityTag(t));const role=c?.role||((id&&/^cast:/i.test(tagLabel(id)))?"cast":"character");return {name:String(c?.name||""),role,gender:c?.gender||"male",tags:[...new Set(tags)]};}
 function profileForTag(t){const low=String(t||"").toLowerCase();return registeredTagMeta.find(r=>r.profile&&String(r.name||"").toLowerCase()===low)||registeredTagMeta.find(r=>String(r.name||"").toLowerCase()===low&&/^(?:character|cast):/i.test(tagLabel(r.name)))||null;}
+function selectedCharacterIndexes(){
+  return [...document.querySelectorAll('#charList [data-char-select]:checked')].map(x=>Number(x.dataset.charSelect)).filter(Number.isInteger);
+}
+function characterAllowedKinds(selected){
+  const genders=new Set(selected.map(i=>curChars[i]?.gender||'male'));
+  const kinds=['tag'];
+  if(genders.has('male')||genders.has('both'))kinds.push('male');
+  if(genders.has('female')||genders.has('both'))kinds.push('female');
+  return new Set(kinds);
+}
+function characterTagAllowedForSelection(tag,selected){
+  if(isIdentityTag(tag)||isInfoTag(tag))return false;
+  return characterAllowedKinds(selected).has(tagKindOf(tag));
+}
+function cycleCharacterRole(i){
+  curChars[i].role=curChars[i].role==='character'?'cast':'character';
+  const old=(curChars[i].tags||[]).find(isIdentityTag);
+  if(old){const clean=tagLabel(old).replace(/^(?:character|cast):\s*/i,'');const scope=activeTopId?'['+catPath(activeTopId)+'] ':'';curChars[i].tags=curChars[i].tags.filter(t=>t!==old);curChars[i].tags.unshift(scope+curChars[i].role+':'+clean)}
+  renderChars();
+}
+function cycleCharacterGender(i){const order=['male','female','both'],g=curChars[i].gender||'male';curChars[i].gender=order[(order.indexOf(g)+1)%3];renderChars();}
+function moveCharacter(i,delta){const j=i+delta;if(j<0||j>=curChars.length)return;[curChars[i],curChars[j]]=[curChars[j],curChars[i]];renderChars();}
 function renderChars(){
-  const box=$("charList");if(!box)return;
+  const box=$('charList');if(!box)return;
+  const wasOpen=!$('charFieldBody')?.classList.contains('hidden');
   box.innerHTML=curChars.map((c,i)=>{
     const id=(c.tags||[]).find(t=>isIdentityTag(t));
-    const label=id?tagLabel(id).replace(/^(?:character|cast):\s*/i,""):String(c.name||"");
-    const deps=(c.tags||[]).filter(t=>!isIdentityTag(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));
-    return '<div class="char-box" data-ci="'+i+'"><div class="char-head"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-char-select="'+i+'">등장인물 '+(i+1)+'</label><button type="button" class="btn sm danger" data-chdel="'+i+'">삭제</button></div><fieldset class="char-choice-panel"><legend>Category:</legend><div class="char-choice-row"><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="character" '+(c.role==="character"?"checked":"")+'> character</label><label><input type="radio" name="charrole_'+i+'" data-role="'+i+'" value="cast" '+(c.role==="cast"?"checked":"")+'> cast</label></div><div class="char-choice-row"><span class="char-choice-label">성별:</span><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="male" '+(c.gender==="male"?"checked":"")+'> 남성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="female" '+(c.gender==="female"?"checked":"")+'> 여성</label><label><input type="radio" name="chargender_'+i+'" data-gender="'+i+'" value="both" '+(c.gender==="both"?"checked":"")+'> 양성</label></div></fieldset><div class="char-tag-picker"><input data-charname="'+i+'" placeholder="이름 또는 기존 프로필 검색" autocomplete="off" value="'+esc(label)+'"><div class="char-tag-suggest" data-charsuggest="'+i+'"></div></div><div class="char-tag-picker" style="margin-top:8px"><input data-dtag="'+i+'" placeholder="등장인물에 적용할 태그 검색..." autocomplete="off"><div class="char-tag-suggest" data-dtagsuggest="'+i+'"></div></div><div class="selected" data-ctags="'+i+'">'+deps.map(t=>tagMarkup(t,true)).join("")+'</div></div>';
-  }).join("");
-    box.querySelectorAll("[data-charname]").forEach(inp=>{
-    const i=+inp.dataset.charname;
-    const sug=()=>{const s=document.querySelector('[data-charsuggest="'+i+'"]');if(s)s._anchor=inp;showCharacterNameSug(i,inp.value)};
-    inp.oninput=()=>{curChars[i].name=inp.value;sug()};
-    inp.onfocus=()=>{sug()};
-    inp.onblur=()=>setTimeout(()=>{const s=document.querySelector('[data-charsuggest="'+i+'"]');closeSuggest(s)},150);
-    inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();commitPlainCharacterName(i,inp.value)}};
-  });
-  box.querySelectorAll("[data-role]").forEach(r=>r.onchange=()=>{const i=+r.dataset.role;curChars[i].role=r.value;const old=(curChars[i].tags||[]).find(t=>isIdentityTag(t));if(old){const v=tagLabel(old).replace(/^(?:character|cast):\s*/i,"");const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";curChars[i].tags=curChars[i].tags.filter(t=>t!==old);curChars[i].tags.unshift(scope+r.value+":"+v)}renderChars();renderSelTags()});
-  box.querySelectorAll("[data-gender]").forEach(r=>r.onchange=()=>{const i=+r.dataset.gender;curChars[i].gender=r.value;renderChars()});
-  box.querySelectorAll("[data-chdel]").forEach(b=>b.onclick=()=>{curChars.splice(+b.dataset.chdel,1);renderChars()});
-  box.querySelectorAll("[data-dtag]").forEach(inp=>{
-    const i=+inp.dataset.dtag;
-    const sug=()=>{const s=document.querySelector('[data-dtagsuggest="'+i+'"]');if(s)s._anchor=inp;showDependentTagSug(i,inp.value)};
-    inp.oninput=()=>sug();
-    inp.onfocus=()=>sug();
-    inp.onblur=()=>setTimeout(()=>{const s=document.querySelector('[data-dtagsuggest="'+i+'"]');closeSuggest(s)},150);
-    inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();addDependentTag(i,inp.value,true);inp.value="";closeSuggest(document.querySelector('[data-dtagsuggest="'+i+'"]'))}};
-  });
-  box.querySelectorAll("[data-trm]").forEach(b=>b.onclick=()=>{const i=+b.closest(".char-box").dataset.ci;curChars[i].tags=(curChars[i].tags||[]).filter(t=>t!==b.dataset.trm);renderChars();renderSelTags()});
+    const label=id?tagLabel(id).replace(/^(?:character|cast):\s*/i,''):String(c.name||'');
+    const deps=(c.tags||[]).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),'ko'));
+    const role=c.role||'character',gender=c.gender||'male';
+    return '<div class="char-box" data-ci="'+i+'"><div class="char-head"><label><input type="checkbox" data-char-select="'+i+'">등장인물 '+(i+1)+'</label><div class="char-head-actions"><button type="button" class="char-choice-btn role" data-role-cycle="'+i+'">'+role+'</button><button type="button" class="char-choice-btn gender-'+gender+'" data-gender-cycle="'+i+'">'+({male:'남성',female:'여성',both:'양성'}[gender])+'</button><button type="button" class="btn sm danger" data-chdel="'+i+'">삭제</button></div></div><div class="char-name-field char-tag-picker"><input data-charname="'+i+'" placeholder="이름 또는 기존 프로필 검색" autocomplete="off" value="'+esc(label)+'"><div class="char-tag-suggest" data-charsuggest="'+i+'"></div></div><div class="selected" data-ctags="'+i+'">'+deps.map(t=>tagMarkup(t,true)).join('')+'</div></div>';
+  }).join('');
+  box.querySelectorAll('[data-charname]').forEach(inp=>{const i=+inp.dataset.charname;const sug=()=>{const s=document.querySelector('[data-charsuggest="'+i+'"]');if(s)s._anchor=inp;showCharacterNameSug(i,inp.value)};inp.oninput=()=>{curChars[i].name=inp.value;sug()};inp.onfocus=()=>sug();inp.onblur=()=>setTimeout(()=>closeSuggest(document.querySelector('[data-charsuggest="'+i+'"]')),150);inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();commitPlainCharacterName(i,inp.value)}}});
+  box.querySelectorAll('[data-role-cycle]').forEach(b=>b.onclick=()=>cycleCharacterRole(+b.dataset.roleCycle));
+  box.querySelectorAll('[data-gender-cycle]').forEach(b=>b.onclick=()=>cycleCharacterGender(+b.dataset.genderCycle));
+  box.querySelectorAll('[data-chdel]').forEach(b=>b.onclick=()=>{curChars.splice(+b.dataset.chdel,1);renderChars()});
+  box.querySelectorAll('[data-trm]').forEach(b=>b.onclick=()=>{const i=+b.closest('.char-box').dataset.ci;curChars[i].tags=(curChars[i].tags||[]).filter(t=>t!==b.dataset.trm);renderChars()});
+  if($('charFieldBody')){$('charFieldBody').classList.toggle('hidden',!wasOpen||curChars.length===0);$('charField').classList.toggle('open',wasOpen&&curChars.length>0);$('charFieldToggle').setAttribute('aria-expanded',String(wasOpen&&curChars.length>0));}
+  renderCommonCharacterTagState();
 }
-function showCharacterNameSug(i,q){
-  const box=document.querySelector('[data-charsuggest="'+i+'"]');if(!box)return;
-  const role=curChars[i]?.role||"character";
-  const typed=String(q||"").trim();
-  const low=typed.toLowerCase().replace(/^(?:character|cast):\s*/i,"");
-  const prefix=activeTopId?"["+catPath(activeTopId)+"] ":"";
-  const rx=new RegExp("^"+role+":","i");
-  const profiles=profileRows().filter(r=>r.name.startsWith(prefix)&&rx.test(tagLabel(r.name))&&(!low||tagLabel(r.name).slice(tagLabel(r.name).indexOf(":")+1).trim().toLowerCase().includes(low)));
-  const tags=registeredTags.filter(tg=>tg.startsWith(prefix)&&rx.test(tagLabel(tg))&&!profileForTag(tg)&&(!low||tagLabel(tg).slice(tagLabel(tg).indexOf(":")+1).trim().toLowerCase().includes(low)));
-  const used=new Set(curChars[i]?.tags||[]);
-  const cand=[...profiles.map(r=>r.name),...tags].filter((v,idx,a)=>a.indexOf(v)===idx&&!used.has(v)).slice(0,15);
-  let html=cand.map(name=>{
-    const plain=tagLabel(name).replace(/^(?:character|cast):\s*/i,"");
-    const isProf=!!profileForTag(name);
-    return '<button type="button" data-profile-pick="'+esc(name)+'">'+(isProf?"👤 ":"")+esc(plain)+'</button>';
-  }).join("");
-  if(low && !cand.some(name=>tagLabel(name).slice(tagLabel(name).indexOf(":")+1).trim().toLowerCase()===low)){
-    html+='<button type="button" class="new-char-tag" data-char-new="'+esc(typed)+'">＋ "'+esc(typed)+'" 등록</button>';
-  }
-  box.innerHTML=html;
-  box.classList.toggle("open",!!html);
-  if(box.classList.contains("open"))placeFloatingSuggest(box,box._anchor||document.querySelector('[data-charname="'+i+'"]'));
-  else clearFloatingSuggest(box);
-  box.querySelectorAll("[data-profile-pick]").forEach(b=>b.onclick=()=>{
-    selectCharacterProfile(i,b.dataset.profilePick);
-    box.classList.remove("open");
-  });
-  box.querySelectorAll("[data-char-new]").forEach(b=>b.onclick=()=>{
-    commitPlainCharacterName(i,b.dataset.charNew);
-    // identity tag도 등록
-    const clean=String(b.dataset.charNew||"").trim().replace(/^(?:character|cast):\s*/i,"");
-    const store=prefix+role+":"+clean;
-    if(!curChars[i].tags)curChars[i].tags=[];
-    curChars[i].tags=curChars[i].tags.filter(tg=>!isIdentityTag(tg));
-    if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);
-    if(!registeredTags.includes(store)){
-      const row={name:store,kind:role+":",everUsed:true,profile:true,gender:curChars[i]?.gender||"male",topCategoryId:activeTopId?rootId(activeTopId):null,profileTags:[],series:""};
-      put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);
-      registeredTags.sort((a,b)=>a.localeCompare(b,"ko"));
-    }
-    box.classList.remove("open");
-    renderChars();renderSelTags();
-  });
+function renderCommonCharacterTagState(){
+  const input=$('commonCharTagInput');if(input)input.disabled=selectedCharacterIndexes().length===0;
 }
-function selectCharacterProfile(i,tag){
-  const prof=profileForTag(tag);if(!prof)return;
-  const role=curChars[i]?.role||"character",scope=activeTopId?"["+catPath(activeTopId)+"] ":"",clean=tagLabel(prof.name).replace(/^(?:character|cast):\s*/i,"");
-  curChars[i].name=clean;curChars[i].role=role;
-  const store=scope+role+":"+clean;curChars[i].tags=(curChars[i].tags||[]).filter(t=>!isIdentityTag(t));curChars[i].tags.unshift(store);
-  applyProfileToCurrent(i,prof);renderChars();renderSelTags();
+function showCommonCharacterTagSug(q){
+  const box=$('commonCharTagSuggest'),input=$('commonCharTagInput');if(!box||!input)return;
+  const selected=selectedCharacterIndexes();if(!selected.length){clearFloatingSuggest(box);return;}
+  const low=String(q||'').trim().toLowerCase(),prefix=activeTopId?'['+catPath(activeTopId)+'] ':'';
+  const cand=registeredTags.filter(t=>t.startsWith(prefix)&&characterTagAllowedForSelection(t,selected)&&(!low||tagLabel(t).toLowerCase().includes(low))&&selected.every(i=>!(curChars[i].tags||[]).includes(t))).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),'ko')).slice(0,20);
+  let html=cand.map(t=>'<div data-common-tag="'+esc(t)+'" class="'+tagColor(t)+'">'+esc(tagLabel(t))+'</div>').join('');
+  if(low&&!cand.some(t=>tagLabel(t).toLowerCase()===low))html+='<div data-common-new="'+esc(q.trim())+'" class="new-char-tag">＋ "'+esc(q.trim())+'" 등록</div>';
+  box.innerHTML=html;if(html)placeFloatingSuggest(box,input);else clearFloatingSuggest(box);
+  box.querySelectorAll('[data-common-tag]').forEach(b=>b.onclick=()=>addCommonCharacterTag(b.dataset.commonTag,false));
+  box.querySelectorAll('[data-common-new]').forEach(b=>b.onclick=()=>addCommonCharacterTag(b.dataset.commonNew,true));
 }
-function commitPlainCharacterName(i,value){
-  const name=String(value||"").trim();if(!name)return;
-  curChars[i].name=name;curChars[i].tags=(curChars[i].tags||[]).filter(t=>!isIdentityTag(t));
-  renderChars();renderSelTags();
+async function addCommonCharacterTag(raw,register=false){
+  const selected=selectedCharacterIndexes();if(!selected.length)return;let text=String(raw||'').trim();if(!text)return;
+  const m=text.match(/^(male|female|tag):\s*(.*)$/i);const kind=m?m[1].toLowerCase():'tag';const clean=(m?m[2]:text).trim();if(!clean)return;
+  const store=(activeTopId?'['+catPath(activeTopId)+'] ':'')+kind+':'+clean;
+  if(!characterTagAllowedForSelection(store,selected))return;
+  if(register&&!registeredTags.includes(store)){const row={name:store,kind:kind+':',everUsed:false};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,'ko'));}
+  selected.forEach(i=>{if(!curChars[i].tags)curChars[i].tags=[];if(!curChars[i].tags.includes(store))curChars[i].tags.push(store)});
+  $('commonCharTagInput').value='';clearFloatingSuggest($('commonCharTagSuggest'));renderChars();
 }
-function showCharTagSug(i,q){const box=document.querySelector('[data-ctagsuggest="'+i+'"]');if(!box)return;const role=curChars[i]?.role||"character";const low=(q||"").replace(/^(?:character|cast):\s*/i,"").trim().toLowerCase();const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const profiles=profileRows().filter(r=>r.name.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(r.name))&&(!low||tagLabel(r.name).slice(tagLabel(r.name).indexOf(":")+1).trim().toLowerCase().includes(low)));const tags=registeredTags.filter(t=>t.startsWith(scopePrefix)&&new RegExp("^"+role+":","i").test(tagLabel(t))&&!profileForTag(t)&&(!low||tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase().includes(low)));const cand=[...profiles.map(r=>r.name),...tags].filter((v,i,a)=>a.indexOf(v)===i).filter(t=>!(curChars[i].tags||[]).includes(t)).slice(0,15);box.innerHTML=cand.map(t=>'<button type="button" data-ctpick="'+esc(t)+'">'+esc(tagLabel(t))+'</button>').join("");if(low&&!cand.some(t=>tagLabel(t).slice(tagLabel(t).indexOf(":")+1).trim().toLowerCase()===low))box.innerHTML+='<button type="button" class="new-char-tag" data-ctnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);if(box.classList.contains("open"))placeFloatingSuggest(box,box._anchor||box.closest(".char-tag-picker")?.querySelector("input"));else clearFloatingSuggest(box);box.querySelectorAll("[data-ctpick]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctpick);box.classList.remove("open")});box.querySelectorAll("[data-ctnew]").forEach(b=>b.onclick=()=>{addIdentityTag(i,b.dataset.ctnew,true);box.classList.remove("open")});}
-function genderTagAllowed(tag,gender){const k=tagKindOf(tag);return k==="tag"||(gender==="both"?(k==="male"||k==="female"):k===gender)}
-function showDependentTagSug(i,q){const box=document.querySelector('[data-dtagsuggest="'+i+'"]');if(!box)return;const low=(q||"").toLowerCase(),gender=curChars[i]?.gender||"male";const scopePrefix=activeTopId?"["+catPath(activeTopId)+"] ":"";const cand=registeredTags.filter(t=>t.startsWith(scopePrefix)&&genderTagAllowed(t,gender)).filter(t=>!isIdentityTag(t)&&!isInfoTag(t)).filter(t=>!low||tagLabel(t).toLowerCase().includes(low)).filter(t=>!(curChars[i].tags||[]).includes(t)).sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko")).slice(0,15).map(tagLabel);box.innerHTML=cand.map(t=>'<button type="button" data-dpick="'+esc(t)+'">'+esc(t)+'</button>').join("");if(low&&!cand.includes(q.trim()))box.innerHTML+='<button type="button" class="new-char-tag" data-dnew="'+esc(q.trim())+'">＋ "'+esc(q.trim())+'" 등록</button>';box.classList.toggle("open",!!box.innerHTML);if(box.classList.contains("open"))placeFloatingSuggest(box,box._anchor||box.closest(".char-tag-picker")?.querySelector("input"));else clearFloatingSuggest(box);box.querySelectorAll("[data-dpick]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dpick,false);box.classList.remove("open")});box.querySelectorAll("[data-dnew]").forEach(b=>b.onclick=()=>{addDependentTag(i,b.dataset.dnew,true);box.classList.remove("open")});}
-async function addDependentTag(i,tag,register=false){let raw=String(tag||"").trim();if(!raw)return;const m=raw.match(/^(male|female|series|artist|tag):\s*(.*)$/i);let store;if(m){store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+m[1].toLowerCase()+":"+m[2].trim()}else{store=(activeTopId?"["+catPath(activeTopId)+"] ":"")+"tag:"+raw}
-  if(/^series:/i.test(tagLabel(store))){if(!bookmarkSeriesSelections.includes(store))bookmarkSeriesSelections.push(store);renderBookmarkSpecialSelections();return}
-  if(/^artist:/i.test(tagLabel(store))){if(!bookmarkArtistSelections.includes(store))bookmarkArtistSelections.push(store);renderBookmarkSpecialSelections();return}
-  if(!curChars[i].tags)curChars[i].tags=[];if(!curChars[i].tags.includes(store))curChars[i].tags.push(store);if(register&&!registeredTags.includes(store)){const row={name:store,kind:tagKindOf(store)+":"};await put(ST,row);registeredTags.push(store);registeredTagMeta.push(row);registeredTags.sort((a,b)=>a.localeCompare(b,"ko"))}renderChars();renderSelTags()}
-async function addIdentityTag(i,tag){const prof=profileForTag(tag);if(!prof){commitPlainCharacterName(i,tag);return}selectCharacterProfile(i,prof.name)}
-function applyProfileToCurrent(i,prof){
-  if(!prof)return;
-  if(prof.gender)curChars[i].gender=prof.gender;
-  const scope=activeTopId?"["+catPath(activeTopId)+"] ":"";
-  for(const t of (prof.profileTags||[])){
-    let st=String(t||"").trim();if(!st)continue;
-    if(scope&&!st.startsWith("["))st=scope+st;
-    // Series는 북마크의 Series 칸으로만 연결한다.
-    if(/^series:/i.test(tagLabel(st))){
-      if(!bookmarkSeriesSelections.includes(st))bookmarkSeriesSelections.push(st);
-      continue;
-    }
-    // 프로필의 사전등록 태그는 등장인물 자체의 태그로만 유지한다.
-    // 북마크의 일반 Tag 칸(curTags)에는 자동 추가하지 않는다.
-    if(!curChars[i].tags.includes(st))curChars[i].tags.push(st);
-  }
-  renderBookmarkSpecialSelections();
-}
-function addOneChar(){curChars.push({role:"character",gender:"male",tags:[]});renderChars()}
-$("addCharBtn").onclick=addOneChar;
-
+function addOneChar(){const wasOpen=curChars.length>0;curChars.push({role:'character',gender:'male',tags:[]});renderChars();$('charFieldBody')?.classList.remove('hidden');$('charField')?.classList.add('open');$('charFieldToggle')?.setAttribute('aria-expanded','true');}
+$('addCharBtn').onclick=addOneChar;
 /* 편집 모달 */
 function showEdit(x){
-  editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";$("cloneEditBtn").classList.toggle("hidden",!x);
+  editingId=x?.id||null;$("modalTitle").textContent=x?"북마크 수정":"북마크 추가";$("cloneEditBtn").classList.toggle("hidden",!x);$("deleteEditBtn").classList.toggle("hidden",!x);
   $("url").value=x?.url||"";$("title").value=x?.title||"";$("notes").value=x?.notes||"";
   bookmarkSeriesSelections=(x?.tags||[]).filter(t=>/^series:/i.test(tagLabel(t)));bookmarkArtistSelections=(x?.tags||[]).filter(t=>/^artist:/i.test(tagLabel(t)));curTags=[...(x?.tags||[])].filter(t=>!/^series:/i.test(tagLabel(t))&&!/^artist:/i.test(tagLabel(t)));renderBookmarkSpecialSelections();
   // 하위 카테고리: 최상위가 아니면 그대로, 최상위만이면 null
@@ -1261,16 +1219,22 @@ function showEdit(x){
   curChars=x?.characters?x.characters.map(normalizeCharacter) : [];
     const mt=x?.metaType||"";document.querySelectorAll('input[name="metaType"]').forEach(r=>r.checked=r.value===mt);$("metaPages").value=x?.pages??"";setDur(x?.duration||"00:00:00");
   $("metaPagesField").classList.toggle("hidden",mt!=="pages");$("metaDurationField").classList.toggle("hidden",mt!=="duration");
-  renderSelTags();renderSelCat();renderChars();
-  $("tagPickerInput").value="";$("catPickerInput").value="";
+  renderSelTags();renderSelCat();
+  $("charFieldBody").classList.toggle("hidden",curChars.length===0);$("charField").classList.toggle("open",curChars.length>0);$("charFieldToggle").setAttribute("aria-expanded",String(curChars.length>0));
+  renderChars();renderCommonCharacterTagState();
+  $("tagPickerInput").value="";$("catPickerInput").value="";$("commonCharTagInput").value="";
   $("tagSuggest").classList.remove("open");$("catSuggest").classList.remove("open");
   $("editModal").classList.add("open");
   // 버튼 재바인딩 (캐시/재렌더 대비)
-  const ab=$("addCharBtn");
-  if(ab)ab.onclick=addOneChar;
-  $("charSelectAll").onclick=()=>{document.querySelectorAll("#charList [data-char-select]").forEach(b=>b.checked=true)};
-  $("charClearAll").onclick=()=>{document.querySelectorAll("#charList [data-char-select]").forEach(b=>b.checked=false)};
+  $("addCharBtn").onclick=addOneChar;
+  $("charSelectAll").onclick=()=>{document.querySelectorAll("#charList [data-char-select]").forEach(b=>b.checked=true);renderCommonCharacterTagState()};
+  $("charClearAll").onclick=()=>{document.querySelectorAll("#charList [data-char-select]").forEach(b=>b.checked=false);renderCommonCharacterTagState()};
+  $("charMoveUp").onclick=()=>{const p=selectedCharacterIndexes();if(p.length===1)moveCharacter(p[0],-1)};
+  $("charMoveDown").onclick=()=>{const p=selectedCharacterIndexes();if(p.length===1)moveCharacter(p[0],1)};
   $("copyCharBtn").onclick=copySelectedCharacters;
+  $("charFieldToggle").onclick=()=>{if(!curChars.length)return;const open=$("charFieldBody").classList.toggle("hidden");$("charField").classList.toggle("open",!open);$("charFieldToggle").setAttribute("aria-expanded",String(!open))};
+  $("commonCharTagInput").oninput=e=>showCommonCharacterTagSug(e.target.value);$("commonCharTagInput").onfocus=e=>showCommonCharacterTagSug(e.target.value);
+  document.querySelectorAll('#charList [data-char-select]').forEach(b=>b.onchange=renderCommonCharacterTagState);
 }
 function renderSelTags(){
   curTags.sort((a,b)=>tagLabel(a).localeCompare(tagLabel(b),"ko"));$("selectedTags").innerHTML=curTags.map(t=>tagMarkup(t,true)).join("");
@@ -1327,7 +1291,7 @@ function showBookmarkSpecialSug(kind,q){
 }
 function showTagSug(q){
   const box=$("tagSuggest"),low=q.toLowerCase();
-  const cand=tagsInScope().filter(t=>!/^(?:\[.*\]\s+)?(?:series|artist):/i.test(t)&&!curTags.includes(t)&&tagLabel(t).toLowerCase().includes(low)).slice(0,12);
+  const cand=tagsInScope().filter(t=>!/^(?:\[.*\]\s+)?(?:series|artist|character|cast|production):/i.test(t)&&!curTags.includes(t)&&tagLabel(t).toLowerCase().includes(low)).slice(0,12);
   if(!cand.length){box.classList.remove("open");return}
   box.innerHTML=cand.map(t=>'<div data-t="'+esc(t)+'" class="'+tagColor(t)+'">'+esc(tagLabel(t))+'</div>').join("");
   markSuggestOpen(box);
@@ -1397,7 +1361,11 @@ $("bulkPasteChars").onclick=bulkPasteCharacters;$("bulkCreateFolder").onclick=cr
 window.removeItem=async id=>{if(confirm("삭제할까요?")){const x=items.find(v=>v.id===id);const fid=x?.folderId;await del(SB,id);await touchFolder(fid);await cleanupZeroUseTags();await refresh()}};
 $("addBtn").onclick=()=>showEdit();
 $("cancelBtn").onclick=()=>$("editModal").classList.remove("open");
+function snapshotTagFilterState(){return {include:[...(tagStates.include||[])],exclude:[...(tagStates.exclude||[])]};}
+function restoreTagFilterState(snapshot){const valid=new Set(registeredTags);tagStates={include:[...new Set((snapshot?.include||[]).filter(t=>valid.has(t)))],exclude:[...new Set((snapshot?.exclude||[]).filter(t=>valid.has(t)))]};saveTagFilterStates();}
+$("deleteEditBtn").onclick=async()=>{if(!editingId)return;const x=items.find(v=>v.id===editingId);if(!x)return;if(!confirm("이 북마크를 삭제할까요?"))return;const fid=x.folderId;const state=snapshotTagFilterState();await del(SB,editingId);await touchFolder(fid);await cleanupZeroUseTags();$("editModal").classList.remove("open");await refresh();restoreTagFilterState(state);render();};
 $("saveBtn").onclick=async()=>{
+  const savedTagFilterState=snapshotTagFilterState();
   let url=normalizeUrl($("url").value);
   if(!url||!/^https?:\/\//i.test(url)){alert("http(s) URL 필요");return}
   if(!activeTopId){alert("최상위 카테고리를 먼저 선택하세요");return}
@@ -1422,7 +1390,7 @@ $("saveBtn").onclick=async()=>{
   for(const t of [...curTags,...bookmarkSeriesSelections,...bookmarkArtistSelections]){const r=registeredTagMeta.find(r=>r.name===t);if(r){r.everUsed=true;await put(ST,r)}}
   if(old?.folderId){const f=folders.find(v=>v.id===old.folderId);if(f){f.updatedAt=now;await put(SF,f)}}
   await cleanupZeroUseTags()
-  $("editModal").classList.remove("open");await refresh();
+  $("editModal").classList.remove("open");await refresh();restoreTagFilterState(savedTagFilterState);render();
 };
 
 /* import/export */
@@ -1524,4 +1492,21 @@ openDB().then(async()=>{await refresh()}).catch(e=>{
 <style>
 .meta-type-radio{display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:4px 0}.meta-type-radio label,.profile-kind label{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;margin:0}.meta-type-radio input,.profile-kind input{margin:0;width:auto}.profile-kind{border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin:8px 0 10px;display:flex;gap:22px;flex-wrap:wrap}.profile-kind legend{font-size:12px;color:var(--muted);padding:0 5px}.reg-tag-kinds{grid-template-columns:repeat(4,minmax(0,1fr));align-items:center}.char-gender{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.char-gender>span{min-width:42px;font-weight:700}.char-gender label{display:inline-flex;align-items:center;gap:6px;margin:0;white-space:nowrap}.char-gender input{margin:0;width:auto}.char-tools{display:flex;gap:7px;margin:0 0 8px}.main-character-block{margin:5px 0}.main-character{font-size:15px;font-weight:700}.main-general-tags{margin-top:6px}.search-wrap{position:relative;flex:1;min-width:180px}.search-wrap .search{width:100%}.search-suggest{display:none;position:absolute;z-index:30;left:0;right:0;top:calc(100% + 5px);max-height:260px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.08)}.search-suggest.open{display:block}.search-suggest button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 11px;cursor:pointer}.search-suggest button:hover{background:#f4f6fa}.search-suggest .hint{padding:9px 11px}.tag-filter-folder{margin:7px 0;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fff}.tag-filter-folder>summary{cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:9px 11px;font-weight:700;list-style:none}.tag-filter-folder>summary::-webkit-details-marker{display:none}.tag-filter-folder-body{display:flex;flex-wrap:wrap;gap:6px;padding:0 9px 9px}.tag-filter-folder-body .tb{margin:0}.profile-folder{margin:8px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}.profile-folder>summary{cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:11px 13px;font-weight:700;list-style:none}.profile-folder>summary::-webkit-details-marker{display:none}.profile-folder-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px;padding:0 10px 10px}.profile-card{border:1px solid var(--line);border-radius:11px;padding:12px;background:#fafbfe}.profile-card-title{font-size:17px;font-weight:800;margin-bottom:10px}.profile-card-title.gender-male{color:var(--character-male)}.profile-card-title.gender-female{color:var(--character-female)}.profile-card-title.gender-both{color:var(--character-both)}.profile-card-line{display:flex;gap:9px;align-items:flex-start;margin:7px 0;flex-wrap:wrap}.profile-label{min-width:92px;color:var(--muted);font-size:12px;font-weight:700;padding-top:3px}.profile-value{font-weight:600}.profile-tags{gap:5px}.profile-card-actions{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}.tag-visibility-box{margin-top:16px;border:1px solid var(--line);border-radius:11px;background:#fff;overflow:hidden}.tag-visibility-box>summary{cursor:pointer;list-style:none;padding:10px 12px;font-weight:700;font-size:13px}.tag-visibility-box>summary::-webkit-details-marker{display:none}.tag-visibility-box[open]>summary{border-bottom:1px solid var(--line)}.tag-visibility-box .reg-tag-kinds{padding:10px 12px}.tag-visibility-hint{padding:10px 12px 0;color:var(--muted);font-size:11px;line-height:1.5}
 @media(max-width:620px){.reg-tag-kinds{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* v2.39 unified character editor + modal/dropdown layering */
+.char-field{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fafbfe;position:relative;z-index:10}
+.char-field:focus-within{z-index:7000}
+.char-field-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:transparent;padding:0 0 2px;font:inherit;font-weight:800;color:var(--text);cursor:pointer;text-align:left}
+.char-field-toggle span{font-size:12px;color:var(--muted);transition:transform .15s}.char-field.open .char-field-toggle span{transform:rotate(180deg)}
+.char-field-body{margin-top:10px}.char-tools{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.char-list{display:flex;flex-direction:column;gap:8px;max-height:460px;overflow-y:auto;padding-right:3px;overscroll-behavior:contain}
+.char-box{margin:0!important;padding:10px!important;background:#fff!important}.char-head{margin-bottom:8px!important}.char-head label{color:var(--character);font-weight:800}.char-choice-row{gap:7px!important}
+.char-choice-btn{border:1px solid transparent;border-radius:8px;padding:6px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;min-width:74px;transition:.12s}
+.char-choice-btn.role{color:#0e7490;background:#e6f5f7;border-color:#c8e8ec}.char-choice-btn.gender-male{color:var(--character-male);background:hsl(200 70% 95%);border-color:hsl(200 60% 88%)}
+.char-choice-btn.gender-female{color:var(--character-female);background:hsl(0 70% 95%);border-color:hsl(0 60% 89%)}.char-choice-btn.gender-both{color:var(--character-both);background:hsl(270 60% 95%);border-color:hsl(270 50% 89%)}
+.char-common-tools{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}.char-common-tools label{display:block;font-size:12px;font-weight:800;margin-bottom:5px}
+.char-footer-actions{display:flex;gap:7px;margin-top:9px}.char-footer-actions .btn{flex:1}
+.edit-actions{justify-content:space-between!important;align-items:center!important;margin-top:18px!important;padding-top:12px;border-top:1px solid var(--line)}.edit-danger-actions,.edit-main-actions{display:flex;gap:8px;align-items:center}.edit-danger-actions{margin-right:auto}.edit-main-actions{margin-left:24px}
+#commonCharTagSuggest{z-index:10000}.dialog{overflow:visible!important}.modal.open{overflow:auto}.modal .dialog{margin:auto}.modal .picker:focus-within,.modal .picker.is-open{z-index:10000!important}.modal .suggest{z-index:10001!important}
+@media(max-width:760px){.char-list{max-height:450px}.edit-main-actions{margin-left:16px}.edit-actions{gap:16px}.char-tools .btn{padding:6px 8px;font-size:11px}}
 </style>
